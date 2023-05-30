@@ -7,6 +7,7 @@
 use core::panic::PanicInfo;
 use bootloader::{BootInfo, entry_point};
 use cinea_os::interrupts::pics::PICS;
+use cinea_os::memory::active_level_4_table;
 use cinea_os::println;
 use cinea_os::vga_buffer;
 
@@ -20,18 +21,30 @@ fn panic(_info: &PanicInfo) -> ! {
 }
 
 /// 内核主程序
-fn kernel_main(_boot_info: &'static BootInfo) -> ! {
+fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("Loading Cinea's OS...\n");
     cinea_os::init();
 
     vga_buffer::print_something();
 
-    use x86_64::structures::paging::PageTable;
-    let level_4_table_ptr = 0xffff_ffff_ffff_f000 as *const PageTable;
-    let level_4_table = unsafe {&*level_4_table_ptr};
-    for i in 0..10 {
-        println!("Entry {}: {:?}", i, level_4_table[i]);
+    use x86_64::VirtAddr;
+    use  cinea_os::memory::translate_addr;
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.clone());
+    let addresses = [
+        // the identity-mapped vga buffer page
+        0xb8000,
+        // some code page
+        0x201008,
+        // some stack page
+        0x0100_0020_1a10,
+        // virtual address mapped to physical address 0
+        boot_info.physical_memory_offset.clone(),
+    ];
+    for &address in &addresses {
+        let virt = VirtAddr::new(address.clone());
+        let phys = unsafe { translate_addr(virt, phys_mem_offset) };
+        println!("{:?} -> {:?}", virt, phys);
     }
 
     cinea_os::hlt_loop();

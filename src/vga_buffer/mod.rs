@@ -124,6 +124,7 @@ impl Writer {
                 }
             }
             self.clear_row(BUFFER_HEIGHT - 1);
+            self.row_position = BUFFER_HEIGHT - 1;
         }
     }
 
