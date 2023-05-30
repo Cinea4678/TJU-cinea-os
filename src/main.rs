@@ -5,6 +5,7 @@
 #![feature(abi_x86_interrupt)]
 
 use core::panic::PanicInfo;
+use cinea_os::interrupts::pics::PICS;
 use cinea_os::println;
 use cinea_os::vga_buffer;
 
@@ -22,6 +23,12 @@ pub extern "C" fn _start() -> ! {
     cinea_os::init();
 
     vga_buffer::print_something();
+
+    let level_4_table_pointer = 0xffff_ffff_ffff_f000 as *const u64;
+    for i in 0..10 {
+        let entry = unsafe { *level_4_table_pointer.offset(i) };
+        println!("Entry {}: {:#x}", i, entry);
+    }
 
     cinea_os::hlt_loop();
 }

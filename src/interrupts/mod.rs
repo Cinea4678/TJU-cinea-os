@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use pc_keyboard::{Keyboard, layouts};
 use spin::lock_api::Mutex;
 use x86_64::instructions::port::Port;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use pics::InterruptIndex;
 
@@ -15,6 +15,7 @@ lazy_static! {
         let mut idt = InterruptDescriptorTable::new();
         idt.breakpoint.set_handler_fn(breakpoint_handler);
         idt.double_fault.set_handler_fn(double_fault_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(time_interrupt_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt
@@ -72,4 +73,15 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
     unsafe {
         pics::PICS.lock().notify_end_of_interrupt(pics::InterruptIndex::Keyboard.as_u8());
     }
+}
+
+/// 页错异常处理函数
+extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
+    use crate::hlt_loop;
+    use x86_64::registers::control::Cr2;
+
+    println!("EXCEPTION: PAGE FAULT");
+    println!("Accessed Address: {:?}", Cr2::read());
+    println!("{:#?}", _stack_frame);
+    hlt_loop();
 }
