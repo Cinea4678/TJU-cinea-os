@@ -1,0 +1,19 @@
+[package]
+name = "cinea-os"
+version = "0.1.0"
+edition = "2021"
+authors = ["Cinea Zhan <cineazhan@icloud.com>"]
+
+# 使用`cargo build`编译时需要的配置
+[profile.dev]
+panic = "abort" # 禁用panic时栈展开
+
+# 使用`cargo build --release`编译时需要的配置
+[profile.release]
+panic = "abort" # 禁用panic时栈展开
+
+[dependencies]
+bootloader = "0.9.23"
+
+[package.metadata.bootimage]
+build-command = ["xbuild"]
