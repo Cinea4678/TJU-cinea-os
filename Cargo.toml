@@ -14,6 +14,7 @@ panic = "abort" # 禁用panic时栈展开
 
 [dependencies]
 bootloader = "0.9.23"
+volatile = "0.2.3"
 
 [package.metadata.bootimage]
 build-command = ["xbuild"]
