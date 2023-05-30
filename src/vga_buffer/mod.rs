@@ -1,8 +1,11 @@
 // in src/vga_buffer/mod.rs
 
 use core::fmt;
-use core::fmt::Write;
+
+use lazy_static::lazy_static;
+use spin::Mutex;
 use volatile::Volatile;
+use x86_64::instructions::interrupts;
 
 /// VGA标准颜色
 #[allow(dead_code)]
@@ -142,17 +145,13 @@ impl Writer {
     }
 }
 
-pub fn print_something() {
-    let mut writer = Writer {
+lazy_static! {
+    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         row_position: 0,
         column_position: 0,
         color_code: ColorCode::new(Color::LightCyan, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
-    };
-
-    write!(writer, "Every smallest dream matters.\n\n").unwrap();
-    write!(writer, "\t----Hello World From Cinea's Operating System\n").unwrap();
-    write!(writer, "\t\t\t\t\t\t\t\t2023.5.30").unwrap();
+    });
 }
 
 impl fmt::Write for Writer {
@@ -160,4 +159,31 @@ impl fmt::Write for Writer {
         self.write_string(s);
         Ok(())
     }
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+
+    // 防止死锁
+    interrupts::without_interrupts(||{
+        WRITER.lock().write_fmt(args).unwrap();
+    })
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+pub fn print_something() {
+    println!("Every smallest dream matters.\n\n");
+    println!("\t----Hello World From Cinea's Operating System\n");
+    println!("\t\t\t\t\t\t\t\t2023.5.30\n");
 }

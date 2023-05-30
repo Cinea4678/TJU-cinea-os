@@ -2,24 +2,26 @@
 
 #![no_std] // 不链接Rust标准库
 #![no_main] // 禁用所有Rust层级的入口点
-
-mod vga_buffer;
+#![feature(abi_x86_interrupt)]
 
 use core::panic::PanicInfo;
-use crate::vga_buffer::Writer;
+use cinea_os::println;
+use cinea_os::vga_buffer;
 
 /// 这个函数将在panic时被调用
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    loop {}
+    println!("{}", _info);
+    cinea_os::hlt_loop();
 }
-
-static HELLO: &[u8] = b"Every smallest dream matters.";
 
 #[no_mangle] // 不重整函数名
 pub extern "C" fn _start() -> ! {
 
+    println!("Loading Cinea's OS...\n");
+    cinea_os::init();
+
     vga_buffer::print_something();
 
-    loop {}
+    cinea_os::hlt_loop();
 }
