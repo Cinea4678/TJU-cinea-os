@@ -7,6 +7,7 @@
 pub mod interrupts;
 pub mod vga_buffer;
 pub mod gdt;
+pub mod memory;
 
 pub fn init() {
     // 加载GDT
