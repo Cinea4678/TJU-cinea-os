@@ -3,13 +3,23 @@ use x86_64::{
     VirtAddr,
     PhysAddr
 };
+use x86_64::structures::paging::OffsetPageTable;
+
+/// 初始化偏移页表
+///
+/// 这个函数是危险的，因为其调用的函数具有危险性。
+/// 详情请见active_level_4_table
+pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
+    let l4t = active_level_4_table(physical_memory_offset);
+    OffsetPageTable::new(l4t,physical_memory_offset)
+}
 
 /// 返回用于激活Level 4页表的引用。
 ///
 /// 必须指出，这个函数是危险的。如果Physical Memory Offset错误给出，
 /// 将会造成panic。此外，重复调用这个函数也是危险的，因为它会返回静态
 /// 可变引用。
-pub unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
+unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
     use x86_64::registers::control::Cr3;
 
     let (level_4_table_frame, _) = Cr3::read();
@@ -63,4 +73,5 @@ fn translate_addr_inner(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Opt
     // 计算物理地址
     Some(frame.start_address() + u64::from(addr.page_offset()))
 }
+
 
