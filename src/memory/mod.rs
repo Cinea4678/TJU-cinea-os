@@ -1,9 +1,10 @@
+use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
+    PhysAddr,
     structures::paging::PageTable,
-    VirtAddr,
-    PhysAddr
+    VirtAddr
 };
-use x86_64::structures::paging::OffsetPageTable;
+use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
 
 /// 初始化偏移页表
 ///
@@ -74,4 +75,58 @@ fn translate_addr_inner(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Opt
     Some(frame.start_address() + u64::from(addr.page_offset()))
 }
 
+/// 创建一个映射，将给定的页映射到0xb8000
+///
+/// FIXME 删了这个函数
+pub fn create_example_mapping(
+    page: Page,
+    mapper: &mut OffsetPageTable,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) {
+    use x86_64::structures::paging::PageTableFlags as Flags;
 
+    let frame = PhysFrame::containing_address(PhysAddr::new(0xb8000));
+    let flags = Flags::PRESENT | Flags::WRITABLE;
+
+    // 调用者必须保证所请求的帧未被使用
+    let map_to_result = unsafe {
+        mapper.map_to(page, frame, flags, frame_allocator)
+    };
+    map_to_result.expect("Map_to Failed").flush();
+}
+
+/// 虚拟的帧分配器
+pub struct EmptyFrameAllocator;
+
+unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        None
+    }
+}
+
+/// 帧分配器，返回BootLoader的内存映射中的可用帧
+pub struct BootInfoFrameAllocator {
+    memory_map: &'static MemoryMap,
+    next: usize,
+}
+
+impl BootInfoFrameAllocator {
+    /// 使用传递的内存映射创建一个帧分配器
+    ///
+    /// 函数不安全，因为调用者必须保证memory_map的正确性
+    pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
+        BootInfoFrameAllocator {
+            memory_map,
+            next: 0,
+        }
+    }
+
+    /// 返回一个可用帧的迭代器
+    fn usable_frames(&self) -> impl Iterator<Item=PhysFrame> {
+        // 获取内存中的可用区域
+        let regions = self.memory_map.iter();
+        let usable_regions = regions.filter(|r| r.region_type == MemoryRegionType::Usable);
+        // 将这些区域映射到他们的地址范围内
+        let addr_ranges = usable_regions.map(|r| r.range.start_addr()..r.range.end_addr());
+    }
+}
