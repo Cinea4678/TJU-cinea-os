@@ -128,5 +128,17 @@ impl BootInfoFrameAllocator {
         let usable_regions = regions.filter(|r| r.region_type == MemoryRegionType::Usable);
         // 将这些区域映射到他们的地址范围内
         let addr_ranges = usable_regions.map(|r| r.range.start_addr()..r.range.end_addr());
+        // 转换为帧起始位置的迭代器
+        let frame_addresses = addr_ranges.flat_map(|r| r.step_by(4096));
+        // 通过帧起始位置创建PhysFrame类
+        frame_addresses.map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
+    }
+}
+
+unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        let frame = self.usable_frames().nth(self.next.clone());
+        self.next += 1;
+        frame
     }
 }

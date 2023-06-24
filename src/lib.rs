@@ -4,10 +4,13 @@
 #![no_main]
 #![feature(abi_x86_interrupt)]
 
+extern crate alloc;
+
 pub mod interrupts;
 pub mod vga_buffer;
 pub mod gdt;
 pub mod memory;
+pub mod allocator;
 
 pub fn init() {
     // 加载GDT
