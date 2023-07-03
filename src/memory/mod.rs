@@ -2,9 +2,11 @@ use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
     PhysAddr,
     structures::paging::PageTable,
-    VirtAddr
+    VirtAddr,
 };
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
+
+pub mod graphic_support;
 
 /// 初始化偏移页表
 ///
@@ -12,7 +14,7 @@ use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, 
 /// 详情请见active_level_4_table
 pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
     let l4t = active_level_4_table(physical_memory_offset);
-    OffsetPageTable::new(l4t,physical_memory_offset)
+    OffsetPageTable::new(l4t, physical_memory_offset)
 }
 
 /// 返回用于激活Level 4页表的引用。
@@ -60,7 +62,7 @@ fn translate_addr_inner(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Opt
         // 将帧转换为页表引用
         let virt = physical_memory_offset + frame.start_address().as_u64();
         let table_ptr: *const PageTable = virt.as_ptr();
-        let table = unsafe {&*table_ptr};
+        let table = unsafe { &*table_ptr };
 
         // 从页表读取位址并更新帧
         let entry = &table[index];

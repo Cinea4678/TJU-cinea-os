@@ -14,12 +14,19 @@ panic = "abort" # 禁用panic时栈展开
 
 [dependencies]
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
+embedded-graphics = "0.8.0"
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+linked_list_allocator = "0.10.5"
 pc-keyboard = "0.5.0"
 pic8259 = "0.10.4"
+rusttype = { version = "0.9.3", default-features = false, features = ["has-atomics", "libm", "libm-math"] }
 spin = "0.9.8"
+tinybmp = "0.5.0"
+#ttf-parser = { version = "0.19.1", default-features = false, features = ["apple-layout", "glyph-names", "opentype-layout", "variable-fonts"] }
 volatile = "0.2.3"
+x86 = "0.52.0"
 x86_64 = "0.14.10"
 
 [package.metadata.bootimage]
 build-command = ["xbuild"]
+run-args = ["-serial", "stdio"]

@@ -3,6 +3,8 @@
 #![no_std] // 不链接Rust标准库
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![feature(asm_const)]
+#![feature(const_mut_refs)]
 
 extern crate alloc;
 
@@ -11,6 +13,9 @@ pub mod vga_buffer;
 pub mod gdt;
 pub mod memory;
 pub mod allocator;
+pub mod graphic;
+pub mod qemu;
+pub mod pci;
 
 pub fn init() {
     // 加载GDT
