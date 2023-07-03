@@ -14,7 +14,8 @@ use x86_64::structures::paging::Page;
 use x86_64::VirtAddr;
 
 use cinea_os::{allocator, println};
-use cinea_os::graphic::{display_img, display_rect, enter_wide_mode};
+use cinea_os::graphic::{enter_wide_mode, GD};
+use cinea_os::graphic::font::test_font;
 use cinea_os::memory::graphic_support::create_graphic_memory_mapping;
 use cinea_os::qemu::qemu_print;
 use cinea_os::vga_buffer;
@@ -66,12 +67,15 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     enter_wide_mode(&mut mapper, &mut frame_allocator);
 
-    display_rect(0, 0, 800, 600, 0xFFFFFF);
+
+    GD.lock().display_rect(0, 0, 800, 600, 0xFFFFFF);
 
     let lpld = include_bytes!("../assets/91527085_p0.bmp");
     let cinea_os = include_bytes!("../assets/cinea-os.bmp");
-    display_img(0, 0, lpld);
-    display_img(400, 300, cinea_os);
+    //GD.lock().display_img(0, 0, lpld);
+    GD.lock().display_img(400, 300, cinea_os);
+
+    test_font();
 
 
     cinea_os::hlt_loop();

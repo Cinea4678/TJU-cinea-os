@@ -59,7 +59,7 @@ pub unsafe fn bga_enter_wide(
     let device = pci_find_device(0x1111, 0x1234);
     qemu_print(format!("LFB device is {:?}\n", device).as_str());
     let address = pci_config_read_u32(device.0, device.1, device.2, 0x10);
-    qemu_print(format!("We get LFB address:{:?}", address).as_str());
+    qemu_print(format!("We get LFB address:{:?}\n", address).as_str());
 
     // 初始化显存
     create_graphic_memory_mapping(mapper, frame_allocator, address as u64);

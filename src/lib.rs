@@ -25,9 +25,6 @@ pub fn init() {
     interrupts::init_idt();
     unsafe { interrupts::pics::PICS.lock().initialize() };
     x86_64::instructions::interrupts::enable();
-
-    // 把显存拿到手
-    graphic::BUFFER.lock();
 }
 
 pub fn hlt_loop() -> ! {
