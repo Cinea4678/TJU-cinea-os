@@ -50,7 +50,7 @@ pub unsafe fn bga_enter_wide(
     // 设置显示模式
     bga_write_register(VbeDispiIndex::Xres as u16, super::WIDTH as u16);
     bga_write_register(VbeDispiIndex::Yres as u16, super::HEIGHT as u16);
-    bga_write_register(VbeDispiIndex::Bpp as u16, VbeDispiBpp::_24 as u16);
+    bga_write_register(VbeDispiIndex::Bpp as u16, VbeDispiBpp::_32 as u16);
 
     // 启用VBE
     bga_write_register(VbeDispiIndex::Enable as u16, 0x41);

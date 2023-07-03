@@ -10,12 +10,14 @@ use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
+use embedded_graphics::pixelcolor::Rgb888;
 use x86_64::structures::paging::Page;
 use x86_64::VirtAddr;
 
-use cinea_os::{allocator, println};
+use cinea_os::{allocator, println, rgb888};
 use cinea_os::graphic::{enter_wide_mode, GD};
 use cinea_os::graphic::font::test_font;
+use cinea_os::graphic::text::{TEXT_WRITER, TextWriter};
 use cinea_os::memory::graphic_support::create_graphic_memory_mapping;
 use cinea_os::qemu::qemu_print;
 use cinea_os::vga_buffer;
@@ -68,14 +70,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     enter_wide_mode(&mut mapper, &mut frame_allocator);
 
 
-    GD.lock().display_rect(0, 0, 800, 600, 0xFFFFFF);
+    TEXT_WRITER.lock().write_string("你好鸭！我是2152955张尧。Chinese英文混排测试。");
 
-    let lpld = include_bytes!("../assets/91527085_p0.bmp");
-    let cinea_os = include_bytes!("../assets/cinea-os.bmp");
-    //GD.lock().display_img(0, 0, lpld);
-    GD.lock().display_img(400, 300, cinea_os);
-
-    test_font();
+    //test_font();
 
 
     cinea_os::hlt_loop();

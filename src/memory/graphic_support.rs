@@ -2,8 +2,7 @@ use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
 
 // 配置区域
-const NEEDED_PAGE_NUM: usize = 352;
-const START_ADDR: u64 = 0x000A_0000;
+const NEEDED_PAGE_NUM: usize = 469;
 pub const START_VIRT_ADDR: u64 = 0xC000_0000;
 
 /// 初始化显存
