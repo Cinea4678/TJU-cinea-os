@@ -15,7 +15,8 @@ pub mod memory;
 pub mod allocator;
 pub mod graphic;
 pub mod qemu;
-pub mod pci;
+pub mod gui;
+pub mod io;
 
 pub fn init() {
     // 加载GDT

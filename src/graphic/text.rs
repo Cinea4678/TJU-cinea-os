@@ -22,8 +22,8 @@ struct ScreenChar {
 
 const TEXT_AREA_HEIGHT: usize = super::HEIGHT - 20;
 const TEXT_AREA_WIDTH: usize = super::WIDTH;
-const TEXT_AREA_POS: (usize, usize) = (20, 0);
-const TEXT_SIZE: f32 = 32.0;
+const TEXT_AREA_POS: (usize, usize) = (22, 0);
+const TEXT_SIZE: f32 = 16.0;
 const TEXT_HEIGHT: usize = TEXT_SIZE as usize;
 const TEXT_COLOR: usize = 0x000000;
 const TAB_SIZE: usize = 4 * 16;
@@ -61,29 +61,15 @@ impl TextWriter {
             '\n' => self.new_line(),
             ch => {
                 let (glyph, hm) = get_font(ch, TEXT_SIZE);
-                let bbox = glyph.exact_bounding_box().unwrap_or(Rect {
-                    min: point(0.0, 0.0),
-                    max: point(TEXT_SIZE, TEXT_SIZE),
-                });
                 if self.y_position + hm.advance_width as usize > TEXT_AREA_WIDTH {
                     self.new_line();
                 }
 
-                let x_offset = (self.line_height as f32 - (bbox.max.y - bbox.min.y));
-                qemu_print(format!("{:?},{:?},{:?},{:?}\n", ch, bbox, x_offset,self.line_height).as_str());
-                let x_offset = x_offset as usize;
-
-                let glyph = glyph.positioned(point(0.0, 0.0));
-
                 let mut lock = self.gd.lock();
+                lock.display_font(glyph, (self.line_height + self.line_gap) * self.line_position + TEXT_AREA_POS.0,
+                                  self.y_position + TEXT_AREA_POS.1, TEXT_SIZE, self.line_height, rgb888!(0xffffffu32), rgb888!(0x000000));
 
-                glyph.draw(|y, x, v| unsafe {
-                    let c = (255.0 * v) as u8;
-                    let c = Rgb888::new(c, c, c);
-                    lock.display_pixel((self.line_height + self.line_gap) * self.line_position + x_offset + x as usize, self.y_position + y as usize, c);
-                });
-
-                self.y_position += bbox.max.x as usize + 1usize;
+                self.y_position += hm.advance_width as usize + 1usize;
             }
         }
     }
@@ -94,19 +80,19 @@ impl TextWriter {
         }
     }
 
-    fn clear_row(&mut self, row: usize) {
-        unimplemented!()
-    }
 
     fn new_line(&mut self) {
-        unimplemented!()
+        // 1. 回车
+        self.y_position = 0;
+        // 2. 加新行
+        if self.line_position + 1 < self.max_line {
+            self.line_position += 1;
+        }else{
+            
+        }
     }
 
     fn backspace(&mut self) {
-        unimplemented!()
-    }
-
-    fn carriage_return(&mut self) {
         unimplemented!()
     }
 

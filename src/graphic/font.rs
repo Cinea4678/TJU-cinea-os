@@ -5,7 +5,8 @@ use embedded_graphics::pixelcolor::Rgb888;
 use lazy_static::lazy_static;
 use rusttype::{Font, HMetrics, point, PositionedGlyph, Scale, ScaledGlyph};
 
-use crate::graphic::GD;
+use crate::graphic::{GD, Writer};
+use crate::graphic::text::TextWriter;
 use crate::qemu::qemu_print;
 
 
@@ -47,3 +48,5 @@ pub fn get_font(ch: char, size: f32) -> (ScaledGlyph<'static>, HMetrics){
     let h_metrics = glyph.h_metrics();
     (glyph,h_metrics)
 }
+
+

@@ -1,14 +1,18 @@
 use alloc::format;
+use core::arch::asm;
 use core::cmp::min;
 
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use lazy_static::lazy_static;
+use rusttype::{point, Rect, ScaledGlyph};
 use spin::Mutex;
 use tinybmp::Bmp;
 use volatile::Volatile;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB};
 use x86_64::VirtAddr;
 
+use crate::graphic::color::alpha_mix;
+use crate::graphic::font::get_font;
 use crate::qemu::qemu_print;
 use crate::rgb888;
 
@@ -18,8 +22,8 @@ pub mod text;
 pub mod color;
 
 // 相关配置
-const WIDTH: usize = 800;
-const HEIGHT: usize = 600;
+pub const WIDTH: usize = 800;
+pub const HEIGHT: usize = 600;
 
 /// 屏幕
 #[repr(transparent)]
@@ -52,6 +56,12 @@ impl Writer {
         self.0.chars[x][y].write(color);
     }
 
+    pub fn display_pixel_safe(&mut self, x: usize, y: usize, color: Rgb888) {
+        if x < HEIGHT && y < WIDTH {
+            self.0.chars[x][y].write(color);
+        }
+    }
+
     pub fn display_rect(&mut self, x: usize, y: usize, w: usize, h: usize, color: Rgb888) {
         let x_end = min(x + h, HEIGHT);
         let y_end = min(y + w, WIDTH);
@@ -76,9 +86,35 @@ impl Writer {
             }
         }
     }
+
+    pub fn display_font(&mut self, glyph: ScaledGlyph, x_pos: usize, y_pos: usize, size: f32, line_height: usize, fg_color: Rgb888, bg_color: Rgb888) {
+        let bbox = glyph.exact_bounding_box().unwrap_or(Rect {
+            min: point(0.0, 0.0),
+            max: point(size, size),
+        });
+
+        let x_offset = (line_height as f32 - (bbox.max.y - bbox.min.y)) as usize;
+
+        let glyph = glyph.positioned(point(0.0, 0.0));
+        glyph.draw(|y, x, v| {
+            let (color, _) = alpha_mix(fg_color, v, bg_color, 1.0);
+            self.display_pixel_safe(x_offset + x_pos + x as usize, y_pos + y as usize + bbox.min.x as usize, color);
+        })
+    }
+
+    /// 敬请注意：此方法不检查换行
+    pub unsafe fn display_font_string(&mut self, s: &str, x_pos: usize, y_pos: usize, size: f32, line_height: usize, fg_color: Rgb888, bg_color: Rgb888) {
+        let mut y_pos = y_pos;
+        for ch in s.chars() {
+            if y_pos >= WIDTH { return; }
+            let (glyph, hm) = get_font(ch, size);
+            self.display_font(glyph, x_pos, y_pos, size, line_height, fg_color, bg_color);
+            y_pos += hm.advance_width as usize + 1usize;
+        }
+    }
 }
 
-pub fn test_img(){
+pub fn test_img() {
     GD.lock().display_rect(0, 0, 800, 600, rgb888!(0xFFFFFFu32));
 
     unimplemented!("请为我解除封印");
