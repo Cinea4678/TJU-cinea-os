@@ -67,7 +67,7 @@ impl TextWriter {
 
                 let mut lock = self.gd.lock();
                 lock.display_font(glyph, (self.line_height + self.line_gap) * self.line_position + TEXT_AREA_POS.0,
-                                  self.y_position + TEXT_AREA_POS.1, TEXT_SIZE, self.line_height, rgb888!(0xffffffu32), rgb888!(0x000000));
+                                  self.y_position + TEXT_AREA_POS.1, TEXT_SIZE, self.line_height, rgb888!(0xffffffu32), rgb888!(0x006699u32));
 
                 self.y_position += hm.advance_width as usize + 1usize;
             }

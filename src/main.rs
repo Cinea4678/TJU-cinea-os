@@ -16,8 +16,8 @@ use x86_64::VirtAddr;
 
 use cinea_os::{allocator, println, rgb888};
 use cinea_os::graphic::{enter_wide_mode, GD};
-use cinea_os::graphic::font::test_font;
 use cinea_os::graphic::text::{TEXT_WRITER, TextWriter};
+use cinea_os::gui::init_gui;
 use cinea_os::io::time::cmos::read_RTC;
 use cinea_os::memory::graphic_support::create_graphic_memory_mapping;
 use cinea_os::qemu::qemu_print;
@@ -69,14 +69,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     qemu_print("The OS is leaving VGA now...\n");
 
     enter_wide_mode(&mut mapper, &mut frame_allocator);
+    init_gui();
 
 
-    TEXT_WRITER.lock().write_string("你好鸭！我是2152955张尧。Chinese英文混排测试。\n");
-    unsafe { GD.lock().display_font_string("15:12", 0, 395, 16.0, 16, rgb888!(0xffffffu32), rgb888!(0x000000)); };
-
-    //test_font();
-    TEXT_WRITER.lock().write_string(format!("\n\n从RTC获取时间测试: {:#?}\n", read_RTC()).as_str());
-
+    TEXT_WRITER.lock().write_string("你好鸭！我是2152955张尧。Chinese英文混排测试。Nanjing Yinyue.\n");
 
     cinea_os::hlt_loop();
 }

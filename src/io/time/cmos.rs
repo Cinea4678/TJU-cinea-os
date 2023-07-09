@@ -30,12 +30,12 @@ fn get_RTC_register(reg: u8) -> u8 {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub struct RawTime {
-    second: u8,
-    minute: u8,
-    hour: u8,
-    day: u8,
-    month: u8,
-    year: u32,
+    pub second: u8,
+    pub minute: u8,
+    pub hour: u8,
+    pub day: u8,
+    pub month: u8,
+    pub year: u32,
 }
 
 pub fn read_RTC() -> RawTime {
