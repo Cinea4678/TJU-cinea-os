@@ -1,5 +1,3 @@
-
-
 use core::fmt;
 
 use embedded_graphics::pixelcolor::Rgb888;
@@ -8,11 +6,8 @@ use rusttype::{ScaledGlyph};
 use spin::Mutex;
 
 
-use crate::graphic::{DEFAULT_RGB888, GD, GL, rgb888};
-use crate::graphic::font::get_font;
-
-
-
+use crate::syskrnl::graphic::{DEFAULT_RGB888, GD, GL, rgb888};
+use crate::syskrnl::graphic::font::get_font;
 
 /// 提交到内存中的HD字符
 #[derive(Debug, Clone)]
@@ -127,7 +122,7 @@ impl TextWriter {
     }
 
     fn horizontal_tab(&mut self) {
-        self.y_position = TAB_SIZE - self.y_position % TAB_SIZE;
+        self.y_position += TAB_SIZE - self.y_position % TAB_SIZE;
     }
 }
 

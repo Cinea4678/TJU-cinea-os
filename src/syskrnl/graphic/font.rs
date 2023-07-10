@@ -1,15 +1,7 @@
-
-
-
-
 use lazy_static::lazy_static;
 use rusttype::{Font, HMetrics, Scale, ScaledGlyph};
 
-
-
-
-
-const FONT_DATA: &[u8] = include_bytes!("../../assets/VonwaonBitmap-16px.ttf");
+const FONT_DATA: &[u8] = include_bytes!("../../../assets/VonwaonBitmap-16px.ttf");
 
 lazy_static! {
     pub(super) static ref FONT: Font<'static> = Font::try_from_bytes(FONT_DATA).unwrap();

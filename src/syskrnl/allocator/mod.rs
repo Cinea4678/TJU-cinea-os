@@ -1,16 +1,14 @@
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
 
-
 use x86_64::{
     structures::paging::{
-        mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
+        FrameAllocator, Mapper, mapper::MapToError, Page, PageTableFlags, Size4KiB,
     },
     VirtAddr,
 };
 
-
-use crate::allocator::linked_list::LinkedListAllocator;
+use linked_list::LinkedListAllocator;
 
 pub mod bump;
 mod linked_list;

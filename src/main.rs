@@ -10,12 +10,15 @@ use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
 use x86_64::VirtAddr;
+use cinea_os::println;
 
-use cinea_os::{allocator, println};
-use cinea_os::graphic::enter_wide_mode;
-use cinea_os::gui::init_gui;
-use cinea_os::io::qemu::qemu_print;
-use cinea_os::vga_buffer;
+use cinea_os::syskrnl::{allocator};
+use cinea_os::syskrnl::graphic::enter_wide_mode;
+use cinea_os::syskrnl::gui::init_gui;
+use cinea_os::syskrnl::task::executor::Executor;
+use cinea_os::syskrnl::task::keyboard::print_keypresses;
+use cinea_os::syskrnl::task::Task;
+use cinea_os::syskrnl::vga_buffer;
 
 entry_point!(kernel_main);
 
@@ -28,34 +31,45 @@ fn panic(_info: &PanicInfo) -> ! {
 
 /// 内核主程序
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
-    println!("Loading Cinea's OS...\n");
+    println!("Launching Cinea's OS...\n");
     cinea_os::init();
 
     vga_buffer::print_something();
 
-    use cinea_os::memory::BootInfoFrameAllocator;
-    qemu_print("A\n");
-
     println!("\n\nWaiting for initializing the heap memory...\n");
 
-
+    use cinea_os::syskrnl::memory::BootInfoFrameAllocator;
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.clone());
-    let mut mapper = unsafe { cinea_os::memory::init(phys_mem_offset) };
+    let mut mapper = unsafe { cinea_os::syskrnl::memory::init(phys_mem_offset) };
     let mut frame_allocator = unsafe {
         BootInfoFrameAllocator::init(&boot_info.memory_map)
     };
-    qemu_print("B\n");
 
     allocator::init_heap(&mut mapper, &mut frame_allocator)
         .expect("Heap initialization failed");
-    qemu_print("C\n");
 
-    qemu_print("The OS is leaving VGA now...\n");
+    println!("The OS is leaving VGA now...");
 
     enter_wide_mode(&mut mapper, &mut frame_allocator);
     init_gui();
 
-    println!("\n\n\t\t万里之行，始于足下");
+    println!("\n\n\t\t万里之行，始于足下\n\n");
 
-    cinea_os::hlt_loop();
+    println!("异步处理键盘输入测试：");
+
+    let mut executor = Executor::new();
+    //executor.spawn(Task::new(example_task()));
+    executor.spawn(Task::new(print_keypresses()));
+    executor.run();
+
+    //cinea_os::hlt_loop();
+}
+
+async fn async_number() -> u32 {
+    42
+}
+
+async fn example_task() {
+    let number = async_number().await;
+    println!("async number: {}", number)
 }

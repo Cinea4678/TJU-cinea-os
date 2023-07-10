@@ -1,4 +1,4 @@
-use crate::io::time::cmos::{RawTime, read_RTC};
+use crate::syskrnl::io::time::cmos::{RawTime, read_RTC};
 
 pub mod cmos;
 

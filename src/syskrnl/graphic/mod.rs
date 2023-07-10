@@ -17,12 +17,12 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB};
 use x86_64::VirtAddr;
 
-use crate::graphic::color::{alpha_mix};
-use crate::graphic::font::get_font;
-use crate::graphic::text::TEXT_WRITER;
+use crate::syskrnl::graphic::color::{alpha_mix};
+use crate::syskrnl::graphic::font::get_font;
+use crate::syskrnl::graphic::text::TEXT_WRITER;
 
-use crate::io::qemu::qemu_print;
-use crate::io::VIDEO_MODE;
+use crate::syskrnl::io::qemu::qemu_print;
+use crate::syskrnl::io::VIDEO_MODE;
 use crate::rgb888;
 
 pub mod vbe;

@@ -5,6 +5,7 @@ use spin::Mutex;
 pub mod pci;
 pub mod time;
 pub mod qemu;
+pub mod mouse;
 
 pub enum VideoMode {
     Text,
@@ -30,7 +31,7 @@ lazy_static! {
 
 #[macro_export]
 macro_rules! debug {
-    ($($arg:tt)*) => ($crate::io::qemu::_qemu_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::syskrnl::io::qemu::_qemu_print(format_args!($($arg)*)));
 }
 
 #[macro_export]
@@ -41,16 +42,19 @@ macro_rules! debugln {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
+    // 向Qemu也发送一份
+    qemu::_qemu_print(args);
+
     if VIDEO_MODE.lock().is_text() {
-        crate::vga_buffer::_print(args);
+        crate::syskrnl::vga_buffer::_print(args);
     } else {
-        crate::graphic::_print(args);
+        crate::syskrnl::graphic::_print(args);
     }
 }
 
 #[macro_export]
 macro_rules! print {
-    ($($arg:tt)*) => ($crate::io::_print(format_args!($($arg)*)));
+    ($($arg:tt)*) => ($crate::syskrnl::io::_print(format_args!($($arg)*)));
 }
 
 #[macro_export]

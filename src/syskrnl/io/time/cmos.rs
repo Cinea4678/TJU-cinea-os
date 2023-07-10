@@ -1,10 +1,5 @@
 // 从CMOS读取日期和时间
-
-
-
 use x86::io::{inb, outb};
-
-
 
 const CURRENT_YEAR: u32 = 2023;
 

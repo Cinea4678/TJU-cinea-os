@@ -7,7 +7,7 @@
 use core::alloc::{GlobalAlloc, Layout};
 use core::mem;
 
-use crate::allocator::{align_up, Locked};
+use super::{align_up, Locked};
 
 struct ListNode {
     size: usize,

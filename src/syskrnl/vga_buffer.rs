@@ -5,6 +5,7 @@ use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
+use x86::io::outb;
 use x86_64::instructions::interrupts;
 use crate::println;
 
@@ -90,6 +91,7 @@ impl Writer {
                 });
 
                 self.column_position += 1;
+                self.move_cursor();
             }
         }
     }
@@ -133,16 +135,31 @@ impl Writer {
         if self.column_position > 0 {
             self.column_position -= 1;
         }
+        self.move_cursor();
     }
 
     fn carriage_return(&mut self) {
         self.column_position = 0;
+        self.move_cursor();
     }
 
     fn horizontal_tab(&mut self) {
         self.column_position += TAB_SIZE - (self.column_position.clone() % TAB_SIZE);
         if self.column_position >= BUFFER_WIDTH {
             self.new_line();
+        }
+        self.move_cursor();
+    }
+
+    fn move_cursor(&mut self) {
+        let pos = self.row_position * BUFFER_WIDTH + self.column_position;
+
+        unsafe {
+            outb(0x3D4, 0x0F);
+            outb(0x3D5, (pos & 0xFF) as u8);
+
+            outb(0x3D4, 0x0E);
+            outb(0x3D5, (pos >> 8) as u8);
         }
     }
 }
@@ -185,6 +202,26 @@ pub fn _print(args: fmt::Arguments) {
 // }
 
 pub fn print_something() {
+    println!("
+      _____ _                     ____   _____
+     / ____(_)                   / __ \\ / ____|
+    | |     _ _ __   ___  __ _  | |  | | (___
+    | |    | | '_ \\ / _ \\/ _` | | |  | |\\___ \\
+    | |____| | | | |  __/ (_| | | |__| |____) |      Written by
+     \\_____|_|_| |_|\\___|\\__,_|  \\____/|_____/   Zhang Yao (Cinea)
+
+                                               ");
+
+//     println!("
+// --------------------------------------------------
+//      _______                     ____  _____
+//     / ____(_)___  ___  ____ _   / __ \\/ ___/
+//    / /   / / __ \\/ _ \\/ __ `/  / / / /\\__ \\
+//   / /___/ / / / /  __/ /_/ /  / /_/ /___/ /
+//   \\____/_/_/ /_/\\___/\\__,_/   \\____//____/
+// --------------------------------------------------
+//     ");
+
     println!("Every smallest dream matters.\n\n");
     println!("\t----Hello World From Cinea's Operating System\n");
     println!("\t\t\t\t\t\t\t\t2023.5.30\n");

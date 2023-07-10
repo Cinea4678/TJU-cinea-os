@@ -8,23 +8,21 @@
 
 extern crate alloc;
 
-pub mod interrupts;
-pub mod vga_buffer;
-pub mod gdt;
-pub mod memory;
-pub mod allocator;
-pub mod graphic;
-pub mod gui;
-pub mod io;
+use crate::syskrnl::io::mouse;
+
+pub mod syskrnl;
 
 pub fn init() {
     // 加载GDT
-    gdt::init();
+    syskrnl::gdt::init();
 
     // 加载中断和异常处理
-    interrupts::init_idt();
-    unsafe { interrupts::pics::PICS.lock().initialize() };
+    syskrnl::interrupts::init_idt();
+    unsafe { syskrnl::interrupts::pics::PICS.lock().initialize() };
     x86_64::instructions::interrupts::enable();
+
+    // 启用鼠标
+    // mouse::init_mouse();
 }
 
 pub fn hlt_loop() -> ! {

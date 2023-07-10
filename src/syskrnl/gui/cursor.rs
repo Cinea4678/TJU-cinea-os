@@ -1,6 +1,6 @@
-use crate::graphic::{GL};
+use crate::syskrnl::graphic::{GL};
 
-const CURSOR: &[u8] = include_bytes!("../../assets/cursor.bmp");
+const CURSOR: &[u8] = include_bytes!("../../../assets/cursor.bmp");
 
 pub fn display_cursor_first_time(x: usize, y: usize) {
     let pos = GL.read().len() - 1;

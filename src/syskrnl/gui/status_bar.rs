@@ -1,6 +1,6 @@
 use alloc::format;
-use crate::graphic::{GL, WIDTH};
-use crate::io::time::get_raw_time;
+use crate::syskrnl::graphic::{GL, WIDTH};
+use crate::syskrnl::io::time::get_raw_time;
 use crate::rgb888;
 
 pub fn show_status_bar() {
