@@ -1,8 +1,8 @@
-use alloc::format;
+
 
 use x86::io::{inl, outl};
 
-use crate::io::qemu::qemu_print;
+
 
 const PCI_CONFIG_ADDRESS: u16 = 0xCF8;
 const PCI_CONFIG_DATA: u16 = 0xCFC;

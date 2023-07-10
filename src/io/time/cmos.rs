@@ -1,10 +1,10 @@
 // 从CMOS读取日期和时间
 
-use alloc::format;
+
 
 use x86::io::{inb, outb};
 
-use crate::io::qemu::qemu_print;
+
 
 const CURRENT_YEAR: u32 = 2023;
 
@@ -21,6 +21,7 @@ fn get_update_in_progress_flag() -> u8 {
     }
 }
 
+#[allow(non_snake_case)]
 fn get_RTC_register(reg: u8) -> u8 {
     unsafe {
         outb(CmosPort::Address as u16, reg);
@@ -38,7 +39,8 @@ pub struct RawTime {
     pub year: u32,
 }
 
-pub fn read_rtc() -> RawTime {
+#[allow(non_snake_case)]
+pub fn read_RTC() -> RawTime {
     let mut time = RawTime::default();
 
     // 第一次获取时间

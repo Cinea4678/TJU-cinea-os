@@ -1,8 +1,8 @@
-use alloc::format;
+
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::RgbColor;
-use crate::graphic::DEFAULT_RGB888;
-use crate::io::qemu::qemu_print;
+
+
 
 #[macro_export]
 macro_rules! rgb888 {

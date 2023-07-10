@@ -1,14 +1,14 @@
 use alloc::{format, vec};
 use alloc::boxed::Box;
-use alloc::fmt::format;
-use alloc::rc::Rc;
+
+
 use alloc::vec::Vec;
 use core::cmp::min;
 use core::fmt;
 
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use lazy_static::lazy_static;
-use pc_keyboard::KeyCode::W;
+
 use rusttype::{point, Rect, ScaledGlyph};
 use spin::{Mutex, RwLock};
 use tinybmp::{Bmp, ChannelMasks, RawBmp, RawPixel};
@@ -17,10 +17,10 @@ use x86_64::instructions::interrupts;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB};
 use x86_64::VirtAddr;
 
-use crate::graphic::color::{alpha_mix, alpha_mix_final};
+use crate::graphic::color::{alpha_mix};
 use crate::graphic::font::get_font;
 use crate::graphic::text::TEXT_WRITER;
-use crate::interrupts::TIME;
+
 use crate::io::qemu::qemu_print;
 use crate::io::VIDEO_MODE;
 use crate::rgb888;

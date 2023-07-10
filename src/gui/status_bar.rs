@@ -1,5 +1,5 @@
 use alloc::format;
-use crate::graphic::{GD, GL, WIDTH};
+use crate::graphic::{GL, WIDTH};
 use crate::io::time::get_raw_time;
 use crate::rgb888;
 

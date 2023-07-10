@@ -1,13 +1,13 @@
-use alloc::format;
-use alloc::string::ToString;
 
-use embedded_graphics::pixelcolor::Rgb888;
+
+
+
 use lazy_static::lazy_static;
-use rusttype::{Font, HMetrics, point, PositionedGlyph, Scale, ScaledGlyph};
+use rusttype::{Font, HMetrics, Scale, ScaledGlyph};
 
-use crate::graphic::{GD, Writer};
-use crate::graphic::text::TextWriter;
-use crate::io::qemu::qemu_print;
+
+
+
 
 const FONT_DATA: &[u8] = include_bytes!("../../assets/VonwaonBitmap-16px.ttf");
 
