@@ -1,10 +1,10 @@
-use alloc::format;
-use crate::graphic::{GD, GL, HEIGHT, WIDTH, Writer};
+
+use crate::graphic::{GD, GL, HEIGHT, WIDTH};
 use crate::gui::cursor::display_cursor_first_time;
 use crate::gui::status_bar::show_status_bar;
-use crate::interrupts::TIME;
+
 use crate::io::qemu::qemu_print;
-use crate::rgb888;
+
 
 pub mod status_bar;
 mod cursor;
