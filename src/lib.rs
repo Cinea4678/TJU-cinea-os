@@ -3,10 +3,19 @@
 #![no_std] // 不链接Rust标准库
 #![no_main]
 #![feature(abi_x86_interrupt)]
+#![feature(asm_const)]
+#![feature(const_mut_refs)]
+
+extern crate alloc;
 
 pub mod interrupts;
 pub mod vga_buffer;
 pub mod gdt;
+pub mod memory;
+pub mod allocator;
+pub mod graphic;
+pub mod gui;
+pub mod io;
 
 pub fn init() {
     // 加载GDT
