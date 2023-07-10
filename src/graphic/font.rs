@@ -7,7 +7,7 @@ use rusttype::{Font, HMetrics, point, PositionedGlyph, Scale, ScaledGlyph};
 
 use crate::graphic::{GD, Writer};
 use crate::graphic::text::TextWriter;
-use crate::qemu::qemu_print;
+use crate::io::qemu::qemu_print;
 
 const FONT_DATA: &[u8] = include_bytes!("../../assets/VonwaonBitmap-16px.ttf");
 

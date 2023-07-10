@@ -4,7 +4,7 @@ use alloc::format;
 
 use x86::io::{inb, outb};
 
-use crate::qemu::qemu_print;
+use crate::io::qemu::qemu_print;
 
 const CURRENT_YEAR: u32 = 2023;
 
@@ -38,7 +38,7 @@ pub struct RawTime {
     pub year: u32,
 }
 
-pub fn read_RTC() -> RawTime {
+pub fn read_rtc() -> RawTime {
     let mut time = RawTime::default();
 
     // 第一次获取时间

@@ -1,21 +1,28 @@
 use alloc::{format, vec};
 use alloc::boxed::Box;
+use alloc::fmt::format;
+use alloc::rc::Rc;
 use alloc::vec::Vec;
 use core::cmp::min;
+use core::fmt;
 
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use lazy_static::lazy_static;
 use pc_keyboard::KeyCode::W;
 use rusttype::{point, Rect, ScaledGlyph};
-use spin::Mutex;
-use tinybmp::{Bmp, RawBmp, RawPixel};
+use spin::{Mutex, RwLock};
+use tinybmp::{Bmp, ChannelMasks, RawBmp, RawPixel};
 use volatile::Volatile;
+use x86_64::instructions::interrupts;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB};
 use x86_64::VirtAddr;
 
 use crate::graphic::color::{alpha_mix, alpha_mix_final};
 use crate::graphic::font::get_font;
-use crate::qemu::qemu_print;
+use crate::graphic::text::TEXT_WRITER;
+use crate::interrupts::TIME;
+use crate::io::qemu::qemu_print;
+use crate::io::VIDEO_MODE;
 use crate::rgb888;
 
 pub mod vbe;
@@ -36,9 +43,10 @@ pub struct Buffer {
 /// 显示器
 pub struct PhysicalWriter(&'static mut Buffer);
 
+#[derive(Clone, Debug)]
 pub struct Writer {
-    data: [[(Rgb888, f32); WIDTH]; HEIGHT],
-    //mask: [[u8; WIDTH]; HEIGHT],
+    pub data: Vec<Vec<(Rgb888, bool)>>,
+    pub enable: bool,
 }
 
 lazy_static! {
@@ -48,8 +56,13 @@ lazy_static! {
     };
 
     // 多层叠加显示
-    pub static ref GL: Mutex<Vec<Writer>> = {
-        Mutex::new(Vec::new())
+    pub static ref GL: RwLock<Vec<Mutex<Writer>>> = {
+        let mut v:Vec<Mutex<Writer>> = vec![];
+        v.reserve(5);
+        for _ in 0..5{
+            v.push(Mutex::new(Writer::new()));
+        }
+        RwLock::new(v)
     };
 }
 
@@ -57,6 +70,7 @@ pub fn enter_wide_mode(
     mapper: &mut OffsetPageTable,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
     unsafe { vbe::bga_enter_wide(mapper, frame_allocator); }
+    VIDEO_MODE.lock().set_graphic();
 }
 
 impl PhysicalWriter {
@@ -126,10 +140,13 @@ impl PhysicalWriter {
     }
 }
 
+const DEFAULT_RGB888: Rgb888 = Rgb888::new(0, 0, 0);
+
 impl Writer {
     pub fn new() -> Self {
         Self {
-            data: [[(rgb888!(0), 0.0); WIDTH]; HEIGHT],
+            data: vec![vec![(DEFAULT_RGB888, false); WIDTH]; HEIGHT],
+            enable: false,
         }
     }
 
@@ -137,22 +154,22 @@ impl Writer {
     /// color是RGB888
     ///
     /// 因为这个函数在关键路径上，所以就不检查边界了
-    pub unsafe fn display_pixel(&mut self, x: usize, y: usize, color: Rgb888, alpha: f32) {
-        self.data[x][y] = (color, alpha);
+    pub unsafe fn display_pixel(&mut self, x: usize, y: usize, color: Rgb888) {
+        self.data[x][y] = (color, true);
     }
 
-    pub fn display_pixel_safe(&mut self, x: usize, y: usize, color: Rgb888, alpha: f32) {
+    pub fn display_pixel_safe(&mut self, x: usize, y: usize, color: Rgb888) {
         if x < HEIGHT && y < WIDTH {
-            self.data[x][y] = (color, alpha);
+            self.data[x][y] = (color, true);
         }
     }
 
-    pub fn display_rect(&mut self, x: usize, y: usize, w: usize, h: usize, color: Rgb888, alpha: f32) {
+    pub fn display_rect(&mut self, x: usize, y: usize, w: usize, h: usize, color: Rgb888) {
         let x_end = min(x + h, HEIGHT);
         let y_end = min(y + w, WIDTH);
         for i in x..x_end {
             for j in y..y_end {
-                self.data[x][y] = (color, alpha);
+                self.data[i][j] = (color, true);
             }
         }
     }
@@ -161,7 +178,7 @@ impl Writer {
         match Bmp::<Rgb888>::from_slice(bmp_data) {
             Ok(bmp) => {
                 for Pixel(position, color) in bmp.pixels() {
-                    self.data[x + position.y as usize][y + position.x as usize] = (color, 1.0);
+                    self.data[x + position.y as usize][y + position.x as usize] = (color, true);
                 }
             }
             Err(error) => {
@@ -173,37 +190,46 @@ impl Writer {
     pub fn display_img_32rgba(&mut self, x: usize, y: usize, bmp_data: &[u8]) {
         match RawBmp::from_slice(bmp_data) {
             Ok(bmp) => {
-                match bmp.header().channel_masks {
-                    None => {},
-                    Some(cm) => {
-                        let (mut rr, mut br, mut gr, mut ar) = (0, 0, 0, 0);
-                        let mut rm = cm.red;
-                        while rm & 1 == 0 {
-                            rr += 1;
-                            rm >>= 1;
+                let cm = match bmp.header().channel_masks {
+                    None => {
+                        ChannelMasks {
+                            blue: 0x000000FF,
+                            green: 0x0000FF00,
+                            red: 0x00FF0000,
+                            alpha: 0xFF000000,
                         }
-                        let mut gm = cm.green;
-                        while gm & 1 == 0 {
-                            gr += 1;
-                            gm >>= 1;
-                        }
-                        let mut bm = cm.blue;
-                        while bm & 1 == 0 {
-                            br += 1;
-                            bm >>= 1;
-                        }
-                        let mut am = cm.alpha;
-                        while am & 1 == 0 {
-                            ar += 1;
-                            am >>= 1;
-                        }
-                        let asize = (cm.alpha >> ar) as f32;
+                    },
+                    Some(cm) => cm
+                };
+                let (mut rr, mut br, mut gr, mut ar) = (0, 0, 0, 0);
+                let mut rm = cm.red;
+                while rm & 1 == 0 {
+                    rr += 1;
+                    rm >>= 1;
+                }
+                let mut gm = cm.green;
+                while gm & 1 == 0 {
+                    gr += 1;
+                    gm >>= 1;
+                }
+                let mut bm = cm.blue;
+                while bm & 1 == 0 {
+                    br += 1;
+                    bm >>= 1;
+                }
+                let mut am = cm.alpha;
+                while am & 1 == 0 {
+                    ar += 1;
+                    am >>= 1;
+                }
+                let asize = (cm.alpha >> ar) as f32;
 
-                        for RawPixel { position, color } in bmp.pixels() {
-                            let rgb_color = Rgb888::new(((color & cm.red) >> rr) as u8, ((color & cm.green) >> gr) as u8, ((color & cm.blue) >> br) as u8);
-                            let alpha = ((color & cm.alpha) >> ar) as f32 / asize;
-                            self.display_pixel_safe(position.y as usize, position.x as usize, rgb_color, alpha);
-                        }
+                for RawPixel { position, color } in bmp.pixels() {
+                    let rgb_color = Rgb888::new(((color & cm.red) >> rr) as u8, ((color & cm.green) >> gr) as u8, ((color & cm.blue) >> br) as u8);
+                    let alpha = ((color & cm.alpha) >> ar) as f32 / asize;
+                    //qemu_print(format!("{:?},{:?}", rgb_color, alpha).as_str());
+                    if alpha > 0.5 {
+                        self.display_pixel_safe(x + position.y as usize, y + position.x as usize, rgb_color);
                     }
                 }
             }
@@ -224,8 +250,10 @@ impl Writer {
 
         let glyph = glyph.positioned(point(0.0, 0.0));
         glyph.draw(|y, x, v| {
-            self.display_pixel_safe(x_offset + x_pos + x as usize, y_pos + y as usize + bbox.min.x as usize, color, v);
-        })
+            if v > 0.5 {
+                self.display_pixel_safe(x_offset + x_pos + x as usize, y_pos + y as usize + bbox.min.x as usize, color);
+            }
+        });
     }
 
     /// 敬请注意：此方法不检查换行
@@ -246,17 +274,17 @@ impl Writer {
         } else {
             Box::new((0..HEIGHT).rev())
         };
-        let y_iter: Box<dyn Iterator<Item=usize>> = if dy > 0 {
-            Box::new(0..WIDTH)
-        } else {
-            Box::new((0..WIDTH).rev())
-        };
         for i in x_iter {
+            let y_iter: Box<dyn Iterator<Item=usize>> = if dy > 0 {
+                Box::new(0..WIDTH)
+            } else {
+                Box::new((0..WIDTH).rev())
+            };
             for j in y_iter {
                 if ((i as i32 - dx) as usize) < HEIGHT && ((j as i32 - dy) as usize) < WIDTH {
                     self.data[i][j] = self.data[(i as i32 - dx) as usize][(j as i32 - dy) as usize];
                 } else {
-                    self.data[i][j] = (rgb888!(0), 0.0);
+                    self.data[i][j] = (DEFAULT_RGB888, false);
                 }
             }
         }
@@ -265,28 +293,38 @@ impl Writer {
 
 impl PhysicalWriter {
     pub fn render(&mut self, sx: usize, sy: usize, ex: usize, ey: usize) {
-        let lock = GL.lock();
-        if lock.len() == 0 { return; }
-        let mut graph = lock.last().unwrap().data;
+        //qemu_print(format!("Start Render... Now is {:?}\n", TIME.lock()).as_str());
         if sx < HEIGHT && sy < WIDTH && ex <= HEIGHT && ey <= WIDTH {
-            for layer in (1..lock.len() - 1).rev() {
-                let tomix = lock[layer].data;
+            if GL.read().len() == 0 { return; }
+            let p_lock = GL.read();
+            let lock = p_lock[p_lock.len() - 1].lock();
+            let mut graph: Box<Vec<Vec<(Rgb888, bool)>>> = Box::new(lock.data.clone());
+            drop(lock);
+            for layer in (1..p_lock.len() - 1).rev() {
+                let lock = p_lock[layer].lock();
+                if !lock.enable { continue }
+                let tomix = &lock.data;
                 for x in sx..ex {
                     for y in sy..ey {
-                        if graph[x][y].1 > 0.99 { continue; }
-                        graph[x][y] = alpha_mix(graph[x][y].0, graph[x][y].1, tomix[x][y].0, tomix[x][y].1);
+                        if !graph[x][y].1 && tomix[x][y].1 {
+                            graph[x][y] = tomix[x][y]
+                        }
                     }
                 }
             }
-            let tomix = lock[0].data;
+            let tomix = &p_lock[0].lock().data;
             for x in sx..ex {
                 for y in sy..ey {
-                    self.0.chars[x][y].write(
-                        if graph[x][y].1 > 0.99 { graph[x][y].0 } else { alpha_mix_final(graph[x][y].0, graph[x][y].1, tomix[x][y].0) }
-                    );
+                    graph[x][y].0 = if graph[x][y].1 { graph[x][y].0 } else { tomix[x][y].0 };
+                }
+            }
+            for x in sx..ex {
+                for y in sy..ey {
+                    self.0.chars[x][y].write(graph[x][y].0);
                 }
             }
         }
+        //qemu_print(format!("Finish Render... Now is {:?}\n", TIME.lock()).as_str());
     }
 }
 
@@ -300,5 +338,14 @@ pub fn test_img() {
     // GD.lock().display_img(400, 300, cinea_os);
 }
 
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    use core::fmt::Write;
+
+    // 防止死锁
+    interrupts::without_interrupts(|| {
+        TEXT_WRITER.lock().write_fmt(args).unwrap();
+    })
+}
 
 

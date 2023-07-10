@@ -1,11 +1,11 @@
-use crate::io::time::cmos::{RawTime, read_RTC};
+use crate::io::time::cmos::{RawTime, read_rtc};
 
 pub mod cmos;
 
 const TIME_ZONE: u8 = 8;
 
 pub fn get_raw_time() -> RawTime {
-    let mut tm = read_RTC();
+    let mut tm = read_rtc();
     tm.hour += TIME_ZONE;
     tm
 }
