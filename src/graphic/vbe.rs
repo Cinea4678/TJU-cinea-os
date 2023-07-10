@@ -5,7 +5,7 @@ use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Size4KiB};
 
 use crate::io::pci::{pci_config_read_u32, pci_find_device};
 use crate::memory::graphic_support::create_graphic_memory_mapping;
-use crate::qemu::qemu_print;
+use crate::io::qemu::qemu_print;
 
 const VBE_DISPI_IOPORT_INDEX: u16 = 0x01CE;
 const VBE_DISPI_IOPORT_DATA: u16 = 0x01CF;

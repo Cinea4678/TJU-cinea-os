@@ -6,6 +6,7 @@ use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
 use x86_64::instructions::interrupts;
+use crate::println;
 
 /// VGA标准颜色
 #[allow(dead_code)]
@@ -172,16 +173,16 @@ pub fn _print(args: fmt::Arguments) {
     })
 }
 
-#[macro_export]
-macro_rules! print {
-    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
-}
-
-#[macro_export]
-macro_rules! println {
-    () => ($crate::print!("\n"));
-    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
-}
+// #[macro_export]
+// macro_rules! vga_print {
+//     ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+// }
+// 
+// #[macro_export]
+// macro_rules! vga_println {
+//     () => ($crate::print!("\n"));
+//     ($($arg:tt)*) => ($crate::vga_print!("{}\n", format_args!($($arg)*)));
+// }
 
 pub fn print_something() {
     println!("Every smallest dream matters.\n\n");

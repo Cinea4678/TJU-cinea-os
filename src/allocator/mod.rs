@@ -1,5 +1,6 @@
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
+use linked_list_allocator::LockedHeap;
 
 use x86_64::{
     structures::paging::{
@@ -8,10 +9,11 @@ use x86_64::{
     VirtAddr,
 };
 
-use linked_list_allocator::LockedHeap;
 use crate::allocator::bump::BumpAllocator;
+use crate::allocator::linked_list::LinkedListAllocator;
 
 pub mod bump;
+mod linked_list;
 
 pub struct Locked<A> {
     inner: spin::Mutex<A>,
@@ -46,10 +48,10 @@ unsafe impl GlobalAlloc for Dummy {
 }
 
 #[global_allocator]
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new());
+static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
-pub const HEAP_START: usize = 0x_2002_0831_0000;
-pub const HEAP_SIZE: usize = 100 * 1024; // 100 KiB
+pub const HEAP_START: usize = 0x_0001_0000_0000;
+pub const HEAP_SIZE: usize = 60 * 1024 * 1024; // 10 MiB
 
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
@@ -73,9 +75,33 @@ pub fn init_heap(
         };
     }
 
-    unsafe{
+    unsafe {
         ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE);
     }
 
     Ok(())
+}
+
+#[allow(dead_code)]
+pub fn test_allocator() {
+    use alloc::boxed::Box;
+    use crate::println;
+    use alloc::vec::Vec;
+    use alloc::vec;
+    use alloc::rc::Rc;
+
+    let heap_value = Box::new(831);
+    println!("heap_value is at {:p}", heap_value);
+
+    let mut vec = Vec::new();
+    for i in 0..500 {
+        vec.push(i)
+    }
+    println!("vec at {:p}", vec.as_slice());
+
+    let reference_counted = Rc::new(vec![1, 2, 3]);
+    let cloned_reference = reference_counted.clone();
+    println!("current reference count is {}", Rc::strong_count(&cloned_reference));
+    core::mem::drop(reference_counted);
+    println!("reference count is {} now", Rc::strong_count(&cloned_reference));
 }

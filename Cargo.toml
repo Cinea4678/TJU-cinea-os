@@ -29,4 +29,4 @@ x86_64 = "0.14.10"
 
 [package.metadata.bootimage]
 build-command = ["xbuild"]
-run-args = ["-serial", "stdio"]
+run-args = ["-serial", "stdio", "-m", "1G"]

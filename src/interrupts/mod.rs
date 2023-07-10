@@ -2,14 +2,14 @@ use alloc::format;
 
 use lazy_static::lazy_static;
 use pc_keyboard::{Keyboard, layouts};
-use spin::lock_api::Mutex;
+use spin::Mutex;
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use pics::InterruptIndex;
 
 use crate::{print, println};
-use crate::qemu::qemu_print;
+use crate::io::qemu::qemu_print;
 
 pub mod pics;
 
@@ -42,9 +42,13 @@ extern "x86-interrupt" fn double_fault_handler(_stack_frame: InterruptStackFrame
     loop {}
 }
 
+lazy_static! {
+    pub static ref TIME: Mutex<u128> = Mutex::new(0);
+}
+
 /// 定时器中断处理函数
 extern "x86-interrupt" fn time_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    print!(".");
+    *TIME.lock() += 1;
 
     unsafe {
         pics::PICS.lock().notify_end_of_interrupt(pics::InterruptIndex::Timer.as_u8());
