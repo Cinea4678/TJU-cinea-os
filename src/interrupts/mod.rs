@@ -1,7 +1,7 @@
 use alloc::format;
 
 use lazy_static::lazy_static;
-use pc_keyboard::{Keyboard, layouts};
+
 use spin::Mutex;
 use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};

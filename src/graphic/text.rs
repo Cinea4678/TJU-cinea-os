@@ -27,7 +27,7 @@ const TEXT_AREA_WIDTH: usize = super::WIDTH;
 const TEXT_AREA_POS: (usize, usize) = (22, 0);
 const TEXT_SIZE: f32 = 16.0;
 const TEXT_HEIGHT: usize = TEXT_SIZE as usize;
-const TEXT_COLOR: usize = 0x000000;
+const TEXT_COLOR: Rgb888 = rgb888!(0xddddddu32);
 const TAB_SIZE: usize = 4 * 16;
 
 /// 输出器
@@ -49,7 +49,7 @@ lazy_static! {
             line_height: TEXT_HEIGHT,
             line_gap: 4,
             max_line: TEXT_AREA_HEIGHT / (TEXT_HEIGHT+4),
-            color: rgb888!(TEXT_COLOR),
+            color: TEXT_COLOR,
             layer: 1
         })
     };
@@ -69,7 +69,7 @@ impl TextWriter {
                 let p_lock = GL.read();
                 let mut lock = p_lock[self.layer].lock();
                 lock.display_font(glyph, (self.line_height + self.line_gap) * self.line_position + TEXT_AREA_POS.0,
-                                  self.y_position + TEXT_AREA_POS.1, TEXT_SIZE, self.line_height, rgb888!(0xddddddu32));
+                                  self.y_position + TEXT_AREA_POS.1, TEXT_SIZE, self.line_height, self.color);
 
                 drop(lock);
 
@@ -126,12 +126,8 @@ impl TextWriter {
         }
     }
 
-    fn backspace(&mut self) {
-        unimplemented!()
-    }
-
     fn horizontal_tab(&mut self) {
-        unimplemented!()
+        self.y_position = TAB_SIZE - self.y_position % TAB_SIZE;
     }
 }
 
