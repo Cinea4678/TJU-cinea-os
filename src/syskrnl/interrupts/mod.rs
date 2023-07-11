@@ -1,29 +1,96 @@
 use alloc::format;
-use crossbeam::atomic::AtomicCell;
 
 use lazy_static::lazy_static;
-
-use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
+use spin::Mutex;
+use core::arch::asm;
 
-use pics::InterruptIndex;
-
-use crate::{debugln, println};
+use crate::{debugln, println, syskrnl};
 use crate::syskrnl::io::qemu::qemu_print;
 
 pub mod pics;
 
+/// 将IRQ转换为中断号码
+fn interrupt_index(irq: u8) -> u8 {
+    pics::PIC_1_OFFSET + irq
+}
+
+/// 默认IRQ处理器
+fn default_irq_handler() {}
+
 lazy_static! {
+    pub static ref IRQ_HANDLERS: Mutex<[fn(); 16]> = Mutex::new([default_irq_handler; 16]);
+
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
-        idt.breakpoint.set_handler_fn(breakpoint_handler);
-        idt.double_fault.set_handler_fn(double_fault_handler);
-        idt.page_fault.set_handler_fn(page_fault_handler);
-        idt[InterruptIndex::Timer.as_usize()].set_handler_fn(time_interrupt_handler);
-        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
-        idt[InterruptIndex::Mouse.as_usize()].set_handler_fn(mouse_interrupt_handler);
+        idt.breakpoint
+            .set_handler_fn(breakpoint_handler);
+        unsafe{
+            idt.double_fault
+                .set_handler_fn(double_fault_handler)
+                .set_stack_index(syskrnl::gdt::DOUBLE_FAULT_IST_INDEX);
+            idt.page_fault
+                .set_handler_fn(page_fault_handler)
+                .set_stack_index(syskrnl::gdt::PAGE_FAULT_IST_INDEX);
+            idt.general_protection_fault
+                .set_handler_fn(general_protection_fault_handler)
+                .set_stack_index(syskrnl::gdt::GENERAL_PROTECTION_FAULT_IST_INDEX);
+            // 系统调用接口
+            idt[interrupt_index(0x80) as usize]
+                .set_handler_fn(core::mem::transmute(wrapped_syscall_handler as *mut fn()))
+                .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
+        }
+        idt[interrupt_index(0) as usize].set_handler_fn(irq0_handler);
+        idt[interrupt_index(1) as usize].set_handler_fn(irq1_handler);
+        idt[interrupt_index(2) as usize].set_handler_fn(irq2_handler);
+        idt[interrupt_index(3) as usize].set_handler_fn(irq3_handler);
+        idt[interrupt_index(4) as usize].set_handler_fn(irq4_handler);
+        idt[interrupt_index(5) as usize].set_handler_fn(irq5_handler);
+        idt[interrupt_index(6) as usize].set_handler_fn(irq6_handler);
+        idt[interrupt_index(7) as usize].set_handler_fn(irq7_handler);
+        idt[interrupt_index(8) as usize].set_handler_fn(irq8_handler);
+        idt[interrupt_index(9) as usize].set_handler_fn(irq9_handler);
+        idt[interrupt_index(10) as usize].set_handler_fn(irq10_handler);
+        idt[interrupt_index(11) as usize].set_handler_fn(irq11_handler);
+        idt[interrupt_index(12) as usize].set_handler_fn(irq12_handler);
+        idt[interrupt_index(13) as usize].set_handler_fn(irq13_handler);
+        idt[interrupt_index(14) as usize].set_handler_fn(irq14_handler);
+        idt[interrupt_index(15) as usize].set_handler_fn(irq15_handler);
         idt
     };
+}
+
+/// 参考moros
+macro_rules! irq_handler {
+    ($handler:ident, $irq:expr) => {
+        pub extern "x86-interrupt" fn $handler(_stack_frame: InterruptStackFrame) {
+            let handlers = IRQ_HANDLERS.lock();
+            handlers[$irq]();
+            unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index($irq)); }
+        }
+    };
+}
+
+irq_handler!(irq0_handler, 0);
+irq_handler!(irq1_handler, 1);
+irq_handler!(irq2_handler, 2);
+irq_handler!(irq3_handler, 3);
+irq_handler!(irq4_handler, 4);
+irq_handler!(irq5_handler, 5);
+irq_handler!(irq6_handler, 6);
+irq_handler!(irq7_handler, 7);
+irq_handler!(irq8_handler, 8);
+irq_handler!(irq9_handler, 9);
+irq_handler!(irq10_handler, 10);
+irq_handler!(irq11_handler, 11);
+irq_handler!(irq12_handler, 12);
+irq_handler!(irq13_handler, 13);
+irq_handler!(irq14_handler, 14);
+irq_handler!(irq15_handler, 15);
+
+pub fn set_irq_handler(irq: u8, handler: fn()) {
+    let mut handlers = IRQ_HANDLERS.lock();
+    handlers[irq as usize] = handler;
 }
 
 pub fn init_idt() {
@@ -43,40 +110,13 @@ extern "x86-interrupt" fn double_fault_handler(_stack_frame: InterruptStackFrame
     loop {}
 }
 
-pub static TIME: AtomicCell<u128> = AtomicCell::new(0);
-
-/// 定时器中断处理函数
-extern "x86-interrupt" fn time_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    TIME.fetch_add(1);
-
-    unsafe {
-        pics::PICS.lock().notify_end_of_interrupt(pics::InterruptIndex::Timer.as_u8());
-    }
-}
-
-/// 键盘中断处理函数
-extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    let mut port = Port::new(0x60);
-    let scancode: u8 = unsafe { port.read() };
-    crate::syskrnl::task::keyboard::add_scancode(scancode);
-
-    unsafe {
-        pics::PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
-    }
-}
-
-/// 鼠标中断处理函数
-extern "x86-interrupt" fn mouse_interrupt_handler(_stack_frame: InterruptStackFrame) {
-    // let mut port = Port::new(0x60);
-    // let scancode: u8 = unsafe { port.read() };
-    // crate::task::keyboard::add_scancode(scancode);
-    debugln!("Mouse Intrpt.");
-
-    unsafe {
-        pics::PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Mouse.as_u8());
-    }
+/// 一般保护异常处理函数
+extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) {
+    println!("EXCEPTION: GENERAL PROTECTION FAULT");
+    println!("Stack Frame: {:#?}", stack_frame);
+    println!("Error: {:?}", error_code);
+    debugln!("EXCEPTION: GENERAL PROTECTION FAULT\nStack Frame: {:#?}\nError: {:?}\n", stack_frame, error_code);
+    panic!();
 }
 
 /// 页错异常处理函数
@@ -93,4 +133,72 @@ extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, 
     qemu_print(format!("{:#?}\n", _stack_frame).as_str());
 
     hlt_loop();
+}
+
+// 裸函数包装器，用于把暂存寄存器的值保存到堆栈
+// See（不是第一版怎么还有这种好东西）: https://os.phil-opp.com/returning-from-exceptions/#a-naked-wrapper-function
+macro_rules! wrap {
+    ($fn: ident => $w:ident) => {
+        #[naked]
+        pub unsafe extern "sysv64" fn $w() {
+            asm!(
+                "push rax",
+                "push rcx",
+                "push rdx",
+                "push rsi",
+                "push rdi",
+                "push r8",
+                "push r9",
+                "push r10",
+                "push r11",
+                "mov rsi, rsp", // Arg #2: register list
+                "mov rdi, rsp", // Arg #1: interupt frame
+                "add rdi, 9 * 8",
+                "call {}",
+                "pop r11",
+                "pop r10",
+                "pop r9",
+                "pop r8",
+                "pop rdi",
+                "pop rsi",
+                "pop rdx",
+                "pop rcx",
+                "pop rax",
+                "iretq",
+                sym $fn,
+                options(noreturn)
+            );
+        }
+    };
+}
+
+wrap!(syscall_handler => wrapped_syscall_handler);
+
+extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+    // The registers order follow the System V ABI convention
+    let n = regs.rax;
+    let arg1 = regs.rdi;
+    let arg2 = regs.rsi;
+    let arg3 = regs.rdx;
+    let arg4 = regs.r8;
+
+    // if n == sys::syscall::number::SPAWN { // Backup CPU context
+    //     sys::process::set_stack_frame(**stack_frame);
+    //     sys::process::set_registers(*regs);
+    // }
+
+    let res = syskrnl::syscall::dispatcher(n, arg1, arg2, arg3, arg4);
+
+    // if n == sys::syscall::number::EXIT { // Restore CPU context
+    //     let sf = sys::process::stack_frame();
+    //     unsafe {
+    //         //stack_frame.as_mut().write(sf);
+    //         core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
+    //         core::ptr::write_volatile(regs, sys::process::registers());
+    //     }
+    // }
+
+    regs.rax = res;
+
+    unsafe { pics::PICS.lock().notify_end_of_interrupt(0x80) };
 }

@@ -6,17 +6,29 @@ use crossbeam::queue::ArrayQueue;
 use futures_util::{Stream, StreamExt};
 use futures_util::task::AtomicWaker;
 use pc_keyboard::{DecodedKey, HandleControl, Keyboard, layouts, ScancodeSet1};
+use x86::io::inb;
 
-use crate::{print, println};
+use crate::{debug, print, println};
+use crate::syskrnl::interrupts;
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
+
+/// 键盘中断处理函数
+fn keyboard_interrupt_handler() {
+    let scancode: u8 = unsafe { inb(0x60) };
+    add_scancode(scancode);
+}
+
+pub fn init() {
+    interrupts::set_irq_handler(1, keyboard_interrupt_handler);
+}
 
 pub(crate) fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
         if let Err(_) = queue.push(scancode) {
             println!("警告：键盘扫描码队列已满; 正在丢弃键盘输入");
-        }else {
+        } else {
             WAKER.wake();
         }
     } else {
@@ -65,10 +77,14 @@ pub async fn print_keypresses(){
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode){
             if let Some(key) = keyboard.process_keyevent(key_event) {
                 match key {
-                    DecodedKey::Unicode(character) => {print!("{}",character)}
-                    DecodedKey::RawKey(key) => {print!("{:?}",key)}
+                    DecodedKey::Unicode(character) => {key_event_handler(character)}
+                    DecodedKey::RawKey(key) => {debug!("undk:{:?}",key)}
                 }
             }
         }
     }
+}
+
+fn key_event_handler(ch:char){
+    print!("{}",ch);
 }

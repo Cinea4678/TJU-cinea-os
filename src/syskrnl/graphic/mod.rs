@@ -174,6 +174,16 @@ impl Writer {
         }
     }
 
+    pub fn clear_rect(&mut self, x: usize, y: usize, w: usize, h: usize) {
+        let x_end = min(x + h, HEIGHT);
+        let y_end = min(y + w, WIDTH);
+        for i in x..x_end {
+            for j in y..y_end {
+                self.data[i][j] = (DEFAULT_RGB888, false);
+            }
+        }
+    }
+
     pub fn display_img(&mut self, x: usize, y: usize, bmp_data: &[u8]) {
         match Bmp::<Rgb888>::from_slice(bmp_data) {
             Ok(bmp) => {

@@ -8,3 +8,6 @@ pub mod gui;
 pub mod io;
 pub mod task;
 pub mod clock;
+pub mod time;
+pub mod syscall;
+pub mod proc;

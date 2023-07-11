@@ -14,11 +14,9 @@ mod cursor;
 /// 0: 背景
 ///
 pub fn init_gui() {
-    qemu_print("D\n");
     GL.read()[0].lock().enable = true;
     GL.read()[1].lock().enable = true;
     GL.read()[2].lock().enable = true;
-    qemu_print("E\n");
     show_command_area();
     show_status_bar();
     display_cursor_first_time(HEIGHT / 2, WIDTH / 2);

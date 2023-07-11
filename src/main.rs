@@ -10,7 +10,7 @@ use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
 use x86_64::VirtAddr;
-use cinea_os::println;
+use cinea_os::{debugln, println, syskrnl};
 
 use cinea_os::syskrnl::{allocator};
 use cinea_os::syskrnl::graphic::enter_wide_mode;
@@ -18,6 +18,7 @@ use cinea_os::syskrnl::gui::init_gui;
 use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::print_keypresses;
 use cinea_os::syskrnl::task::Task;
+use cinea_os::syskrnl::time::sleep;
 use cinea_os::syskrnl::vga_buffer;
 
 entry_point!(kernel_main);
@@ -53,9 +54,9 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     enter_wide_mode(&mut mapper, &mut frame_allocator);
     init_gui();
 
-    println!("\n\n\t\t万里之行，始于足下\n\n");
+    println!("\n\n\t\t万里之行，始于足下\n\t\t道阻且长，行则将至\n");
 
-    println!("异步处理键盘输入测试：");
+    println!("系统uptime：{:.5} s", syskrnl::time::get_uptime());
 
     let mut executor = Executor::new();
     //executor.spawn(Task::new(example_task()));
@@ -65,11 +66,15 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     //cinea_os::hlt_loop();
 }
 
-async fn async_number() -> u32 {
-    42
-}
+// async fn async_number() -> u32 {
+//     syskrnl::time::nanowait(100000);
+//     42
+// }
+//
+// async fn example_task() {
+//     loop {
+//         let number = async_number().await;
+//         println!("async number: {}", number)
+//     }
+// }
 
-async fn example_task() {
-    let number = async_number().await;
-    println!("async number: {}", number)
-}
