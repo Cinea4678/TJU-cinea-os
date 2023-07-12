@@ -80,6 +80,56 @@ pub fn init_heap(
     Ok(())
 }
 
+use x86_64::structures::paging::page::PageRangeInclusive;
+use crate::{debugln, syskrnl};
+
+// TODO: Replace `free` by `dealloc`
+pub fn free_pages(addr: u64, size: usize) {
+    let mut mapper = unsafe { syskrnl::memory::mapper(VirtAddr::new(syskrnl::memory::PHYS_MEM_OFFSET)) };
+    let pages: PageRangeInclusive<Size4KiB> = {
+        let start_page = Page::containing_address(VirtAddr::new(addr));
+        let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));
+        Page::range_inclusive(start_page, end_page)
+    };
+    for page in pages {
+        if let Ok((_frame, mapping)) = mapper.unmap(page) {
+            mapping.flush();
+        } else {
+            //debug!("Could not unmap {:?}", page);
+        }
+    }
+}
+
+pub fn alloc_pages(addr: u64, size: usize) -> Result<(), ()> {
+    let mut mapper = unsafe { syskrnl::memory::mapper(VirtAddr::new(syskrnl::memory::PHYS_MEM_OFFSET)) };
+    let mut frame_allocator = unsafe { syskrnl::memory::BootInfoFrameAllocator::init(syskrnl::memory::MEMORY_MAP.unwrap()) };
+    let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
+    let pages = {
+        let start_page = Page::containing_address(VirtAddr::new(addr));
+        let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));
+        Page::range_inclusive(start_page, end_page)
+    };
+    for page in pages {
+        //debugln!("Alloc page {:?}", page);
+        if let Some(frame) = frame_allocator.allocate_frame() {
+            //debugln!("Alloc frame {:?}", frame);
+            unsafe {
+                if let Ok(mapping) = mapper.map_to(page, frame, flags, &mut frame_allocator) {
+                    //debugln!("Mapped {:?} to {:?}", page, frame);
+                    mapping.flush();
+                } else {
+                    debugln!("Could not map {:?} to {:?}", page, frame);
+                    return Err(());
+                }
+            }
+        } else {
+            debugln!("Could not allocate frame for {:?}", page);
+            return Err(());
+        }
+    }
+    Ok(())
+}
+
 #[allow(dead_code)]
 pub fn test_allocator() {
     use alloc::boxed::Box;

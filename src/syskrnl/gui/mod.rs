@@ -1,3 +1,4 @@
+use crate::debugln;
 use crate::syskrnl::graphic::{GD, GL, HEIGHT, WIDTH};
 use crate::syskrnl::gui::cursor::display_cursor_first_time;
 use crate::syskrnl::gui::status_bar::show_status_bar;
@@ -13,7 +14,7 @@ mod cursor;
 /// 1: Console
 /// 0: 背景
 ///
-pub fn init_gui() {
+pub fn init() {
     GL.read()[0].lock().enable = true;
     GL.read()[1].lock().enable = true;
     GL.read()[2].lock().enable = true;

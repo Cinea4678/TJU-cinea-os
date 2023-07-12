@@ -10,12 +10,12 @@
 
 extern crate alloc;
 
-use crate::syskrnl::io::mouse;
+use bootloader::BootInfo;
 
 pub mod syskrnl;
 pub mod sysapi;
 
-pub fn init() {
+pub fn init(bootinfo: &'static BootInfo) {
     // 加载GDT
     syskrnl::gdt::init();
 
@@ -24,11 +24,17 @@ pub fn init() {
     unsafe { syskrnl::interrupts::pics::PICS.lock().initialize() };
     x86_64::instructions::interrupts::enable();
 
+    syskrnl::vga_buffer::print_something();
+
+    // 加载内存
+    println!("\n\nInitializing the memory...\n");
+    syskrnl::memory::init(bootinfo);
+    syskrnl::gui::init();
+
     // 启用各类IO设备
     debugln!("Start timer");
     syskrnl::time::init();
     syskrnl::task::keyboard::init();
-    // mouse::init_mouse();
 }
 
 pub fn hlt_loop() -> ! {

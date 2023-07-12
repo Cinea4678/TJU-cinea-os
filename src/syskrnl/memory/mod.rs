@@ -1,20 +1,53 @@
+use core::sync::atomic::{AtomicU64, Ordering};
+use bootloader::BootInfo;
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
     PhysAddr,
     structures::paging::PageTable,
     VirtAddr,
 };
+use x86_64::instructions::interrupts;
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
+use crate::{println, syskrnl};
+use crate::syskrnl::time::halt;
 
 pub mod graphic_support;
+
+pub static mut PHYS_MEM_OFFSET: u64 = 0;
+pub static mut MEMORY_MAP: Option<&MemoryMap> = None;
+pub static MEMORY_SIZE: AtomicU64 = AtomicU64::new(0);
+
+pub fn init(bootinfo: &'static BootInfo) {
+    interrupts::without_interrupts(|| {
+        let mut memory_size = 0;
+        for region in bootinfo.memory_map.iter() {
+            let start_addr = region.range.start_addr();
+            let end_addr = region.range.end_addr();
+            memory_size += end_addr - start_addr;
+            // println!("MEM [{:#016X}-{:#016X}] {:?}", start_addr, end_addr - 1, region.region_type);
+        }
+        println!("Memory: {} KB", memory_size >> 10);
+        MEMORY_SIZE.store(memory_size, Ordering::Relaxed);
+
+        unsafe { PHYS_MEM_OFFSET = bootinfo.physical_memory_offset };
+        unsafe { MEMORY_MAP.replace(&bootinfo.memory_map) };
+
+        let mut mapper = unsafe { mapper(VirtAddr::new(PHYS_MEM_OFFSET)) };
+        let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&bootinfo.memory_map) };
+
+        syskrnl::allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+
+        syskrnl::graphic::enter_wide_mode(&mut mapper, &mut frame_allocator); // 因为需要分配显存，就放在这里了
+    });
+}
 
 /// 初始化偏移页表
 ///
 /// 这个函数是危险的，因为其调用的函数具有危险性。
 /// 详情请见active_level_4_table
-pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
-    let l4t = active_level_4_table(physical_memory_offset);
-    OffsetPageTable::new(l4t, physical_memory_offset)
+pub unsafe fn mapper(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
+    let level_4_table = active_level_4_table(physical_memory_offset);
+    OffsetPageTable::new(level_4_table, physical_memory_offset)
 }
 
 /// 返回用于激活Level 4页表的引用。
@@ -144,3 +177,4 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
         frame
     }
 }
+

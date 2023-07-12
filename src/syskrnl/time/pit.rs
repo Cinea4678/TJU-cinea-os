@@ -52,5 +52,5 @@ pub fn init(){
     // PIT计时器
     set_pit_frequency_divider(PIT_DIVIDER as u16, 0);
     syskrnl::interrupts::set_irq_handler(0, pit_interrupt_handler);
-    debugln!("{},{}",PIT_FREQUENCY,PIT_INTERVAL);
+    // debugln!("{},{}",PIT_FREQUENCY,PIT_INTERVAL);
 }

@@ -7,6 +7,7 @@ use core::arch::asm;
 
 use crate::{debugln, println, syskrnl};
 use crate::syskrnl::io::qemu::qemu_print;
+use crate::syskrnl::proc::Registers;
 
 pub mod pics;
 

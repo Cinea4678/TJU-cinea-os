@@ -23,7 +23,7 @@ use crate::syskrnl::graphic::text::TEXT_WRITER;
 
 use crate::syskrnl::io::qemu::qemu_print;
 use crate::syskrnl::io::VIDEO_MODE;
-use crate::rgb888;
+use crate::{debugln, rgb888};
 
 pub mod vbe;
 pub mod font;
@@ -167,11 +167,13 @@ impl Writer {
     pub fn display_rect(&mut self, x: usize, y: usize, w: usize, h: usize, color: Rgb888) {
         let x_end = min(x + h, HEIGHT);
         let y_end = min(y + w, WIDTH);
+        debugln!("{:?}", self.data[x][y]);
         for i in x..x_end {
             for j in y..y_end {
                 self.data[i][j] = (color, true);
             }
         }
+        debugln!("{:?}", self.data[x][y]);
     }
 
     pub fn clear_rect(&mut self, x: usize, y: usize, w: usize, h: usize) {
@@ -325,6 +327,7 @@ impl PhysicalWriter {
             let tomix = &p_lock[0].lock().data;
             for x in sx..ex {
                 for y in sy..ey {
+                    // debugln!("{},{},{:?},{}",x,y,graph[x][y].0,graph[x][y].1);
                     graph[x][y].0 = if graph[x][y].1 { graph[x][y].0 } else { tomix[x][y].0 };
                 }
             }

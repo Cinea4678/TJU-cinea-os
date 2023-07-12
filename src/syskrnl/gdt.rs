@@ -12,7 +12,7 @@ pub const GENERAL_PROTECTION_FAULT_IST_INDEX: u16 = 2;
 
 /// 选择子
 #[allow(dead_code)]
-struct Selectors {
+pub struct Selectors {
     code_selector: SegmentSelector,
     tss_selector: SegmentSelector,
     data_selector: SegmentSelector,
@@ -41,7 +41,7 @@ lazy_static! {
         };
         tss
     };
-    static ref GDT:(GlobalDescriptorTable, Selectors) ={
+    pub static ref GDT:(GlobalDescriptorTable, Selectors) ={
         let mut gdt = GlobalDescriptorTable::new();
         let tss_selector = gdt.add_entry(Descriptor::tss_segment(&TSS));
         let code_selector = gdt.add_entry(Descriptor::kernel_code_segment());

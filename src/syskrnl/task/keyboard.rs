@@ -7,9 +7,9 @@ use futures_util::{Stream, StreamExt};
 use futures_util::task::AtomicWaker;
 use pc_keyboard::{DecodedKey, HandleControl, Keyboard, layouts, ScancodeSet1};
 use x86::io::inb;
+use x86_64::instructions::interrupts;
 
-use crate::{debug, print, println};
-use crate::syskrnl::interrupts;
+use crate::{debug, print, println, syskrnl};
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -21,7 +21,9 @@ fn keyboard_interrupt_handler() {
 }
 
 pub fn init() {
-    interrupts::set_irq_handler(1, keyboard_interrupt_handler);
+    interrupts::without_interrupts(|| {
+        syskrnl::interrupts::set_irq_handler(1, keyboard_interrupt_handler);
+    });
 }
 
 pub(crate) fn add_scancode(scancode: u8) {

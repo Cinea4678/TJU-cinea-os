@@ -1,16 +1,18 @@
 [package]
 name = "cinea-os"
+description = "Cinea OS: A Hobby Operating System written on Rust"
 version = "0.1.0"
 edition = "2021"
-authors = ["Cinea Zhan <cineazhan@icloud.com>"]
+authors = ["Zhang Yao <yaoozhang@icloud.com>"]
+default-run = "cinea-os"
 
-# 使用`cargo build`编译时需要的配置
-[profile.dev]
-panic = "abort" # 禁用panic时栈展开
+[[bin]]
+name = "cinea-os"
+path = "src/main.rs"
 
-# 使用`cargo build --release`编译时需要的配置
-[profile.release]
-panic = "abort" # 禁用panic时栈展开
+[[bin]]
+name = "hello"
+path = "src/usrbin/hello.rs"
 
 [dependencies]
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
@@ -20,6 +22,7 @@ embedded-graphics = "0.8.0"
 futures-util = { version = "0.3.28", default-features = false, features = ["alloc"] }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 linked_list_allocator = "0.10.5"
+object = { version = "0.31.1", default-features = false, features = ["read"] }
 pc-keyboard = "0.5.0"
 pic8259 = "0.10.4"
 rusttype = { version = "0.9.3", default-features = false, features = ["has-atomics", "libm", "libm-math"] }

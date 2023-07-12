@@ -10,11 +10,11 @@ use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
 use x86_64::VirtAddr;
-use cinea_os::{debugln, println, syskrnl};
 
-use cinea_os::syskrnl::{allocator};
+use cinea_os::{debugln, println, syskrnl};
+use cinea_os::syskrnl::allocator;
 use cinea_os::syskrnl::graphic::enter_wide_mode;
-use cinea_os::syskrnl::gui::init_gui;
+use cinea_os::syskrnl::gui::init;
 use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::print_keypresses;
 use cinea_os::syskrnl::task::Task;
@@ -33,37 +33,21 @@ fn panic(_info: &PanicInfo) -> ! {
 /// 内核主程序
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("Launching Cinea's OS...\n");
-    cinea_os::init();
 
-    vga_buffer::print_something();
-
-    println!("\n\nWaiting for initializing the heap memory...\n");
-
-    use cinea_os::syskrnl::memory::BootInfoFrameAllocator;
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset.clone());
-    let mut mapper = unsafe { cinea_os::syskrnl::memory::init(phys_mem_offset) };
-    let mut frame_allocator = unsafe {
-        BootInfoFrameAllocator::init(&boot_info.memory_map)
-    };
-
-    allocator::init_heap(&mut mapper, &mut frame_allocator)
-        .expect("Heap initialization failed");
-
-    println!("The OS is leaving VGA now...");
-
-    enter_wide_mode(&mut mapper, &mut frame_allocator);
-    init_gui();
+    cinea_os::init(boot_info);
 
     println!("\n\n\t\t万里之行，始于足下\n\t\t道阻且长，行则将至\n");
 
     println!("系统uptime：{:.5} s", syskrnl::time::get_uptime());
 
-    let mut executor = Executor::new();
-    //executor.spawn(Task::new(example_task()));
-    executor.spawn(Task::new(print_keypresses()));
-    executor.run();
+    // let mut executor = Executor::new();
+    // //executor.spawn(Task::new(example_task()));
+    // executor.spawn(Task::new(print_keypresses()));
+    // executor.run();
 
-    //cinea_os::hlt_loop();
+    let hwp =
+
+        cinea_os::hlt_loop();
 }
 
 // async fn async_number() -> u32 {

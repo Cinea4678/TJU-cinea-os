@@ -5,9 +5,11 @@ pub mod memory;
 pub mod allocator;
 pub mod graphic;
 pub mod gui;
-pub mod io;
 pub mod task;
 pub mod clock;
 pub mod time;
 pub mod syscall;
 pub mod proc;
+
+#[macro_use]
+pub mod io;
