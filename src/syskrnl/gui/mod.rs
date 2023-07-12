@@ -1,8 +1,8 @@
-use crate::debugln;
+
 use crate::syskrnl::graphic::{GD, GL, HEIGHT, WIDTH};
 use crate::syskrnl::gui::cursor::display_cursor_first_time;
 use crate::syskrnl::gui::status_bar::show_status_bar;
-use crate::syskrnl::io::qemu::qemu_print;
+
 
 pub mod status_bar;
 mod cursor;

@@ -1,4 +1,4 @@
-use x86;
+
 use x86_64::instructions::interrupts;
 use crate::syskrnl::time::cmos::{RawTime, read_rtc};
 

@@ -22,7 +22,7 @@ pub const SLEEP:    usize = 0xB;
 /// 打印日志 (2): a0-msg, a1-len
 pub const LOG:      usize = 0xC;
 
-pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize) -> usize {
+pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, _arg3: usize, _arg4: usize) -> usize {
     match syscall_id {
         EXIT => unimplemented!(),
         SPAWN => unimplemented!(),

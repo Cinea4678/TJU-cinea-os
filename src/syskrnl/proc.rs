@@ -23,7 +23,7 @@ pub static MAX_PID: AtomicUsize = AtomicUsize::new(1);
 
 lazy_static! {
     pub static ref PROCESS_TABLE: RwLock<[Box<Process>; MAX_PROCS]> = {
-        let mut table: [Box<Process>; MAX_PROCS] = [(); MAX_PROCS].map(|_| Box::new(Process::new(0)));
+        let table: [Box<Process>; MAX_PROCS] = [(); MAX_PROCS].map(|_| Box::new(Process::new(0)));
         RwLock::new(table)
     };
 }

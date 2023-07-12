@@ -175,7 +175,7 @@ macro_rules! wrap {
 
 wrap!(syscall_handler => wrapped_syscall_handler);
 
-extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+extern "sysv64" fn syscall_handler(_stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
     // The registers order follow the System V ABI convention
     let n = regs.rax;
     let arg1 = regs.rdi;

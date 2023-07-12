@@ -1,6 +1,6 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 use x86_64::instructions::interrupts;
-use crate::{debug, debugln, syskrnl};
+use crate::{syskrnl};
 
 /// `PIT_FREQUENCY`的值是x86架构默认的
 pub const PIT_FREQUENCY: f64 = 3_579_545.0 / 3.0; // 1_193_181.666 Hz

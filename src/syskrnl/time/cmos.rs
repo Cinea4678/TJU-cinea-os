@@ -1,8 +1,8 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 // 从CMOS读取日期和时间
-use x86::io::{inb, inw, outb};
+use x86::io::{inb, outb};
 use x86_64::instructions::interrupts;
-use crate::{debugln, println, syskrnl};
+use crate::{syskrnl};
 use crate::syskrnl::interrupts::set_irq_handler;
 
 const CURRENT_YEAR: u32 = 2023;
