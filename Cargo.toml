@@ -6,14 +6,6 @@ edition = "2021"
 authors = ["Zhang Yao <yaoozhang@icloud.com>"]
 default-run = "cinea-os"
 
-[[bin]]
-name = "cinea-os"
-path = "src/main.rs"
-
-[[bin]]
-name = "hello"
-path = "src/usrbin/hello.rs"
-
 [dependencies]
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
 conquer-once = { version = "0.4.0", default-features = false }
@@ -34,5 +26,4 @@ x86 = "0.52.0"
 x86_64 = "0.14.10"
 
 [package.metadata.bootimage]
-build-command = ["xbuild"]
 run-args = ["-serial", "stdio", "-m", "1G"]

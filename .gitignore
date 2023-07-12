@@ -4,3 +4,6 @@
 .vscode
 .vs
 start.sh
+
+*.iso
+*.img

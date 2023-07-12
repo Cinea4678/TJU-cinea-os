@@ -6,20 +6,13 @@
 
 extern crate alloc;
 
+use alloc::vec;
+use alloc::vec::Vec;
 use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
-use x86_64::VirtAddr;
 
 use cinea_os::{debugln, println, syskrnl};
-use cinea_os::syskrnl::allocator;
-use cinea_os::syskrnl::graphic::enter_wide_mode;
-use cinea_os::syskrnl::gui::init;
-use cinea_os::syskrnl::task::executor::Executor;
-use cinea_os::syskrnl::task::keyboard::print_keypresses;
-use cinea_os::syskrnl::task::Task;
-use cinea_os::syskrnl::time::sleep;
-use cinea_os::syskrnl::vga_buffer;
 
 entry_point!(kernel_main);
 
@@ -45,9 +38,15 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // executor.spawn(Task::new(print_keypresses()));
     // executor.run();
 
-    let hwp =
+    println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
+    debugln!("B-A");
+    let subp = include_bytes!("../dsk/bin/hello");
+    debugln!("B-B");
+    let args: Vec<&str> = vec![];
+    let res = syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0);
+    println!("用户进程已退出，是否退出成功：{}\n顺便一提，我是系统内核进程，看到这条消息说明我在环零运行！", res.is_ok());
 
-        cinea_os::hlt_loop();
+    cinea_os::hlt_loop();
 }
 
 // async fn async_number() -> u32 {

@@ -37,7 +37,7 @@ lazy_static! {
                 .set_handler_fn(general_protection_fault_handler)
                 .set_stack_index(syskrnl::gdt::GENERAL_PROTECTION_FAULT_IST_INDEX);
             // 系统调用接口
-            idt[interrupt_index(0x80) as usize]
+            idt[0x80]
                 .set_handler_fn(core::mem::transmute(wrapped_syscall_handler as *mut fn()))
                 .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
         }

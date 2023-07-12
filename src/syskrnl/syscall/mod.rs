@@ -1,4 +1,6 @@
 use core::arch::asm;
+use crate::sysapi::proc::ExitCode;
+use call::*;
 
 /// 系统调用
 ///
@@ -6,25 +8,11 @@ use core::arch::asm;
 ///
 
 mod service;
-
-pub const EXIT:     usize = 0x1;
-pub const SPAWN:    usize = 0x2;
-pub const READ:     usize = 0x3;
-pub const WRITE:    usize = 0x4;
-pub const OPEN:     usize = 0x5;
-pub const CLOSE:    usize = 0x6;
-pub const INFO:     usize = 0x7;
-pub const DUP:      usize = 0x8;
-pub const DELETE:   usize = 0x9;
-pub const STOP:     usize = 0xA;
-pub const SLEEP:    usize = 0xB;
-
-/// 打印日志 (2): a0-msg, a1-len
-pub const LOG:      usize = 0xC;
+pub mod call;
 
 pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, _arg3: usize, _arg4: usize) -> usize {
     match syscall_id {
-        EXIT => unimplemented!(),
+        EXIT => service::exit(ExitCode::from(arg1)) as usize,
         SPAWN => unimplemented!(),
         READ => unimplemented!(),
         WRITE => unimplemented!(),

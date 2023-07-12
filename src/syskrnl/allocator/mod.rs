@@ -49,12 +49,14 @@ unsafe impl GlobalAlloc for Dummy {
 static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 pub const HEAP_START: usize = 0x_0001_0000_0000;
-pub const HEAP_SIZE: usize = 60 * 1024 * 1024; // 10 MiB
+pub const HEAP_SIZE: usize = 40 * 1024 * 1024; // 10 MiB
 
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,
     frame_allocator: &mut impl FrameAllocator<Size4KiB>,
 ) -> Result<(), MapToError<Size4KiB>> {
+    syskrnl::proc::init_process_addr((HEAP_START + HEAP_SIZE) as u64);
+
     let page_range = {
         let heap_start = VirtAddr::new(HEAP_START as u64);
         let heap_end = heap_start + HEAP_SIZE - 1u64;

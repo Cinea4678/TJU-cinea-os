@@ -11,15 +11,18 @@ use spin::RwLock;
 use x86_64::structures::idt::InterruptStackFrameValue;
 use x86_64::VirtAddr;
 use crate::sysapi::proc::ExitCode;
-use crate::syskrnl;
+use crate::{debugln, println, syskrnl};
 
-const MAX_FILE_HANDLES: usize = 64;
+// const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
 const MAX_PROCS: usize = 2;
 const MAX_PROC_SIZE: usize = 10 << 20;
 
 pub static PID: AtomicUsize = AtomicUsize::new(0);
 pub static MAX_PID: AtomicUsize = AtomicUsize::new(1);
+
+static mut RSP: usize = 0;
+static mut RFLAGS: usize = 0;
 
 lazy_static! {
     pub static ref PROCESS_TABLE: RwLock<[Box<Process>; MAX_PROCS]> = {
@@ -248,18 +251,26 @@ impl Process {
     fn create(bin: &[u8]) -> Result<usize, ()> {
         let proc_size = MAX_PROC_SIZE as u64;
         let code_addr = CODE_ADDR.fetch_add(proc_size, Ordering::SeqCst);
-        let stack_addr = code_addr + proc_size; // 紧跟在程序段后面
+        let stack_addr = code_addr + proc_size - 4096;
+        // 紧跟在程序段后面
+        debugln!("code_addr:  {:#x}", code_addr);
+        debugln!("stack_addr: {:#x}", stack_addr);
 
         let mut entry_point = 0;
         let code_ptr = code_addr as *mut u8;
         if bin[0..4] == ELF_MAGIC { // 进程代码是ELF格式的
             if let Ok(obj) = object::File::parse(bin) {
+                syskrnl::allocator::alloc_pages(code_addr, proc_size as usize).expect("proc mem alloc");
                 entry_point = obj.entry();
+                debugln!("entry_point:{:#x}",entry_point);
                 for segment in obj.segments() {
                     let addr = segment.address() as usize;
                     if let Ok(data) = segment.data() {
+                        debugln!("before flight? codeaddr,addr is {:#x},{:#x}", code_addr, addr);
                         for (i, b) in data.iter().enumerate() {
                             unsafe {
+                                //debugln!("code:       {:#x}", code_ptr.add(addr + i) as usize);
+                                //debugln!("WRITE: from {:p} to {:p}", b, code_ptr.add(addr + i));
                                 core::ptr::write(code_ptr.add(addr + i), *b)
                             }
                         }
@@ -276,10 +287,11 @@ impl Process {
             return Err(());
         }
 
+        // 父进程
         let parent = {
             let table = PROCESS_TABLE.read();
             table[id()].clone()
-        }; // 父进程
+        };
 
         let data = parent.data.clone();
         let registers = parent.registers;
@@ -305,7 +317,7 @@ impl Process {
     // 切换到用户空间并执行程序
     fn exec(&self, args_ptr: usize, args_len: usize) {
         let heap_addr = self.code_addr + (self.stack_addr - self.code_addr) / 2;
-        syskrnl::allocator::alloc_pages(heap_addr, 1).expect("proc heap alloc");
+        //syskrnl::allocator::alloc_pages(heap_addr, 1).expect("proc heap alloc");
 
         let args_ptr = ptr_from_addr(args_ptr as u64) as usize;
         let args: &[&str] = unsafe {

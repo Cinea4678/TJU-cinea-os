@@ -1,4 +1,4 @@
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use bootloader::BootInfo;
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
@@ -16,6 +16,11 @@ pub mod graphic_support;
 pub static mut PHYS_MEM_OFFSET: u64 = 0;
 pub static mut MEMORY_MAP: Option<&MemoryMap> = None;
 pub static MEMORY_SIZE: AtomicU64 = AtomicU64::new(0);
+static ALLOCATED_FRAMES: AtomicUsize = AtomicUsize::new(0);
+
+pub fn memory_size() -> u64 {
+    MEMORY_SIZE.load(Ordering::Relaxed)
+}
 
 pub fn init(bootinfo: &'static BootInfo) {
     interrupts::without_interrupts(|| {
@@ -142,7 +147,6 @@ unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
 /// 帧分配器，返回BootLoader的内存映射中的可用帧
 pub struct BootInfoFrameAllocator {
     memory_map: &'static MemoryMap,
-    next: usize,
 }
 
 impl BootInfoFrameAllocator {
@@ -152,7 +156,6 @@ impl BootInfoFrameAllocator {
     pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
         BootInfoFrameAllocator {
             memory_map,
-            next: 0,
         }
     }
 
@@ -172,9 +175,12 @@ impl BootInfoFrameAllocator {
 
 unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
-        let frame = self.usable_frames().nth(self.next.clone());
-        self.next += 1;
-        frame
+        let next = ALLOCATED_FRAMES.fetch_add(1, Ordering::SeqCst);
+        //debug!("Allocate frame {} / {}", next, self.usable_frames().count());
+
+        // FIXME: creating an iterator for each allocation is very slow if
+        // the heap is larger than a few megabytes.
+        self.usable_frames().nth(next)
     }
 }
 

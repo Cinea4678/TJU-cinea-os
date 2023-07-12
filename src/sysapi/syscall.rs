@@ -1,5 +1,6 @@
+use crate::sysapi::proc::ExitCode;
 use crate::syscall;
-use crate::syskrnl::syscall::LOG;
+use crate::syskrnl::syscall::call::*;
 
 pub fn log(buf: &[u8]) -> Option<usize> {
     let ptr = buf.as_ptr() as usize;
@@ -10,4 +11,8 @@ pub fn log(buf: &[u8]) -> Option<usize> {
     } else {
         None
     }
+}
+
+pub fn exit(code: ExitCode) {
+    unsafe { syscall!(EXIT, code as usize) };
 }
