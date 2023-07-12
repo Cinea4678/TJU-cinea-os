@@ -40,11 +40,11 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
     debugln!("B-A");
-    let subp = include_bytes!("../dsk/bin/hello");
+    // let subp = include_bytes!("../dsk/bin/hello");
     debugln!("B-B");
     let args: Vec<&str> = vec![];
-    let res = syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0);
-    println!("用户进程已退出，是否退出成功：{}\n顺便一提，我是系统内核进程，看到这条消息说明我在环零运行！", res.is_ok());
+    // let res = syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0);
+    // println!("用户进程已退出，是否退出成功：{}\n顺便一提，我是系统内核进程，看到这条消息说明我在环零运行！", res.is_ok());
 
     cinea_os::hlt_loop();
 }
