@@ -9,7 +9,10 @@ user-rust:
 		cargo rustc --release --bin {}
 	basename -s .rs src/bin/*.rs | xargs -I {} \
 		cp target/x86_64-cinea_os/release/{} dsk/bin/{}
-	strip dsk/bin/*
+	if [ `uname -m` = "x86_64" ]; then \
+		strip dsk/bin/*; \
+	fi
+
 
 bin = target/x86_64-cinea_os/$(mode)/bootimage-cinea-os.bin
 img = disk.img

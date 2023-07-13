@@ -1,5 +1,5 @@
 /// 进程退出代码
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum ExitCode {
     Success = 0,

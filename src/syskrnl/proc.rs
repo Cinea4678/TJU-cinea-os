@@ -10,12 +10,13 @@ use object::{Object, ObjectSegment};
 use spin::RwLock;
 use x86_64::structures::idt::InterruptStackFrameValue;
 use x86_64::VirtAddr;
-use crate::sysapi::proc::ExitCode;
+
 use crate::{debugln, println, syskrnl};
+use crate::sysapi::proc::ExitCode;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
-const MAX_PROCS: usize = 2;
+const MAX_PROCS: usize = 4;
 const MAX_PROC_SIZE: usize = 10 << 20;
 
 pub static PID: AtomicUsize = AtomicUsize::new(0);
@@ -65,6 +66,7 @@ pub struct Process {
     stack_frame: InterruptStackFrameValue,
     registers: Registers,
     data: ProcessData,
+    parent: usize,
 }
 
 impl ProcessData {
@@ -98,6 +100,7 @@ impl Process {
             stack_frame: isf,
             registers: Registers::default(),
             data: ProcessData::new("/", None),
+            parent: 0,
         }
     }
 }
@@ -219,7 +222,7 @@ pub fn exit() {
     let proc = &table[id()];
     syskrnl::allocator::free_pages(proc.code_addr, MAX_PROC_SIZE);
     MAX_PID.fetch_sub(1, Ordering::SeqCst);
-    set_id(0); // FIXME: 因为目前还不存在调度，所以直接设置为0
+    set_id(proc.parent); // FIXME: 因为目前还不存在调度，所以直接设置为0
 }
 
 /***************************
@@ -266,7 +269,7 @@ impl Process {
                 for segment in obj.segments() {
                     let addr = segment.address() as usize;
                     if let Ok(data) = segment.data() {
-                        debugln!("before flight? codeaddr,addr is {:#x},{:#x}", code_addr, addr);
+                        // debugln!("before flight? codeaddr,addr is {:#x},{:#x}", code_addr, addr);
                         for (i, b) in data.iter().enumerate() {
                             unsafe {
                                 //debugln!("code:       {:#x}", code_ptr.add(addr + i) as usize);
@@ -296,6 +299,7 @@ impl Process {
         let data = parent.data.clone();
         let registers = parent.registers;
         let stack_frame = parent.stack_frame;
+        let parent = parent.id;
 
         let id = MAX_PID.fetch_add(1, Ordering::SeqCst);
         let proc = Process {
@@ -306,6 +310,7 @@ impl Process {
             registers,
             stack_frame,
             entry_point,
+            parent,
         };
 
         let mut table = PROCESS_TABLE.write();
@@ -319,6 +324,7 @@ impl Process {
         let heap_addr = self.code_addr + (self.stack_addr - self.code_addr) / 2;
         //syskrnl::allocator::alloc_pages(heap_addr, 1).expect("proc heap alloc");
 
+        // 处理参数
         let args_ptr = ptr_from_addr(args_ptr as u64) as usize;
         let args: &[&str] = unsafe {
             core::slice::from_raw_parts(args_ptr as *const &str, args_len)
@@ -344,6 +350,7 @@ impl Process {
         };
         let args_ptr = args.as_ptr() as u64;
 
+        debugln!("LAUNCH");
         set_id(self.id); // 要换咯！
         // 发射！
         unsafe {

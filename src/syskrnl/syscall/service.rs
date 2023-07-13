@@ -1,4 +1,4 @@
-use crate::{println, syskrnl};
+use crate::{debugln, println, syskrnl};
 use crate::sysapi::proc::ExitCode;
 use crate::syskrnl::proc::Process;
 
@@ -14,7 +14,7 @@ pub fn sleep(seconds: f64) {
 /// FIXME 在未来，要改正。现在是测试用途
 pub fn spawn(number: usize, args_ptr: usize, args_len: usize) -> ExitCode {
     let subprocess = match number {
-        // 0x00 => include_bytes!("../../dsk/bin/hello"),
+        0x00 => include_bytes!("../../../dsk/bin/hello"),
         _ => {
             println!("spawn: invalid number");
             return ExitCode::OpenError;
@@ -28,7 +28,8 @@ pub fn spawn(number: usize, args_ptr: usize, args_len: usize) -> ExitCode {
 }
 
 pub fn log(msg: usize, len: usize) -> usize {
-    let msg = unsafe { core::slice::from_raw_parts(msg as *const u8, len) };
+    let ptr = syskrnl::proc::ptr_from_addr(msg as u64); // cnmd不看人家源码根本想不到
+    let msg = unsafe { core::slice::from_raw_parts(ptr, len) };
     match core::str::from_utf8(msg) {
         Err(_) => {
             println!("log: invalid utf8 string");

@@ -1,7 +1,7 @@
 use alloc::format;
 
 use lazy_static::lazy_static;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, InterruptStackFrameValue, PageFaultErrorCode};
 use spin::Mutex;
 use core::arch::asm;
 
@@ -175,7 +175,7 @@ macro_rules! wrap {
 
 wrap!(syscall_handler => wrapped_syscall_handler);
 
-extern "sysv64" fn syscall_handler(_stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
     // The registers order follow the System V ABI convention
     let n = regs.rax;
     let arg1 = regs.rdi;
@@ -183,21 +183,21 @@ extern "sysv64" fn syscall_handler(_stack_frame: &mut InterruptStackFrame, regs:
     let arg3 = regs.rdx;
     let arg4 = regs.r8;
 
-    // if n == sys::syscall::number::SPAWN { // Backup CPU context
-    //     sys::process::set_stack_frame(**stack_frame);
-    //     sys::process::set_registers(*regs);
-    // }
+    if n == syskrnl::syscall::call::SPAWN { // 保存现场
+        syskrnl::proc::set_stack_frame(**stack_frame);
+        syskrnl::proc::set_registers(*regs);
+    }
 
     let res = syskrnl::syscall::dispatcher(n, arg1, arg2, arg3, arg4);
 
-    // if n == sys::syscall::number::EXIT { // Restore CPU context
-    //     let sf = sys::process::stack_frame();
-    //     unsafe {
-    //         //stack_frame.as_mut().write(sf);
-    //         core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
-    //         core::ptr::write_volatile(regs, sys::process::registers());
-    //     }
-    // }
+    if n == syskrnl::syscall::call::EXIT { // 恢复现场
+        let sf = syskrnl::proc::stack_frame();
+        unsafe {
+            //stack_frame.as_mut().write(sf);
+            core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
+            core::ptr::write_volatile(regs, syskrnl::proc::registers());
+        }
+    }
 
     regs.rax = res;
 

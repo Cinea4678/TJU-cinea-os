@@ -1,6 +1,9 @@
 use core::arch::asm;
-use crate::sysapi::proc::ExitCode;
+
 use call::*;
+
+use crate::debugln;
+use crate::sysapi::proc::ExitCode;
 
 /// 系统调用
 ///
@@ -10,10 +13,10 @@ use call::*;
 mod service;
 pub mod call;
 
-pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, _arg3: usize, _arg4: usize) -> usize {
+pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, _arg4: usize) -> usize {
     match syscall_id {
         EXIT => service::exit(ExitCode::from(arg1)) as usize,
-        SPAWN => unimplemented!(),
+        SPAWN => service::spawn(arg1, arg2, arg3) as usize,
         READ => unimplemented!(),
         WRITE => unimplemented!(),
         OPEN => unimplemented!(),
@@ -22,8 +25,13 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, _arg3: usize, _ar
         DUP => unimplemented!(),
         DELETE => unimplemented!(),
         STOP => unimplemented!(),
-        SLEEP => unimplemented!(),
-        LOG => service::log(arg1, arg2),
+        SLEEP => {
+            service::sleep(f64::from_bits(arg1 as u64));
+            0
+        }
+        LOG => {
+            service::log(arg1, arg2)
+        }
         _ => panic!("unknown syscall id: {}", syscall_id),
     }
 }
