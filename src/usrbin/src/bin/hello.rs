@@ -3,6 +3,7 @@
 
 extern crate alloc;
 
+use alloc::format;
 use cinea_os::{entry_point, sysapi};
 use cinea_os::sysapi::syscall;
 
@@ -31,5 +32,6 @@ fn main(args: &[&str]) {
         uwriteln!(stdout, "Hello, {}", args[0]).unwrap();
     } else {
         uwriteln!(stdout, "\nHello World From User-Space!\n").unwrap();
+        syscall::log(format!("哥们就是用format，怎么了！{}", "哈哈").as_bytes());
     }
 }

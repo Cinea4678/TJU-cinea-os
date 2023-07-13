@@ -4,7 +4,7 @@ use core::ptr::null_mut;
 use x86_64::{PhysAddr, structures::paging::{
     FrameAllocator, Mapper, mapper::MapToError, Page, PageTableFlags, Size4KiB,
 }, VirtAddr};
-use x86_64::structures::paging::{OffsetPageTable, PhysFrame};
+use x86_64::structures::paging::{OffsetPageTable, PhysFrame, Translate};
 use x86_64::structures::paging::page::PageRangeInclusive;
 
 use linked_list::LinkedListAllocator;
@@ -154,6 +154,24 @@ pub fn alloc_pages_to_known_phys(mapper: &mut OffsetPageTable, addr: u64, size: 
         }
     }
     Ok(())
+}
+
+/// FIXME: 权宜之计，有更好的方法第一时间换掉
+pub unsafe fn fix_page_fault_in_userspace(mapper: &mut OffsetPageTable) {
+    let mut frame_allocator = syskrnl::memory::frame_allocator();
+    let flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
+
+    let pages = {
+        let start_page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(0x20_0000));
+        let end_page = Page::containing_address(VirtAddr::new(0x21_0000)); // 先开10页，出问题再说
+        Page::range_inclusive(start_page, end_page)
+    };
+
+    for page in pages {
+        let frame = mapper.unmap(page).expect("unmap fail 5623");
+        let mapping = mapper.map_to(page, frame.0, flags, &mut frame_allocator).expect("map fail 78523");
+        mapping.flush();
+    }
 }
 
 

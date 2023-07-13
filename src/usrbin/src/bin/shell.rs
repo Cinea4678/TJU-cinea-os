@@ -19,7 +19,6 @@ fn main(_args: &[&str]) {
     syscall::log("我是Shell（伪），我正在子进程运行。".as_bytes());
     syscall::log("进程切换测试。".as_bytes());
     syscall::log("现在进入子进程。".as_bytes());
-    // let v = Box::new(32);
     // unsafe { asm!("int 3") }
     // let s1 = String::from("Magical ");
     // let s2 = String::from("World!");

@@ -16,7 +16,7 @@ use x86_64::VirtAddr;
 
 use crate::{debugln, syskrnl};
 use crate::syskrnl::sysapi::ExitCode;
-use crate::syskrnl::allocator::{alloc_pages, alloc_pages_to_known_phys, Locked};
+use crate::syskrnl::allocator::{alloc_pages, alloc_pages_to_known_phys, fix_page_fault_in_userspace, Locked};
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
 
 // const MAX_FILE_HANDLES: usize = 64;
@@ -298,17 +298,20 @@ impl Process {
         let page_table = unsafe { syskrnl::memory::create_page_table(page_table_frame) };
         let kernel_page_table = unsafe { syskrnl::memory::active_page_table() };
 
-        // for (user_page, kernel_page) in page_table.iter_mut().zip(kernel_page_table.iter()) {
-        //     *user_page = kernel_page.clone();
-        // }
+        for (user_page, kernel_page) in page_table.iter_mut().zip(kernel_page_table.iter()) {
+            *user_page = kernel_page.clone();
+        }
 
         let phys_mem_offset = unsafe { syskrnl::memory::PHYS_MEM_OFFSET };
         let mut mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
         let mut kernel_mapper = unsafe { OffsetPageTable::new(kernel_page_table, VirtAddr::new(phys_mem_offset)) };
 
+        // 特别地，打开用户页表的内核使用权限
+        unsafe { fix_page_fault_in_userspace(&mut mapper) };
+
         let proc_size = MAX_PROC_SIZE as u64;
         let kernel_code_addr = CODE_ADDR.fetch_add(proc_size, Ordering::SeqCst);
-        let code_addr = 0u64;
+        let code_addr = kernel_code_addr;
         let stack_addr = code_addr + proc_size - 4096;
         // 紧跟在程序段后面
         debugln!("code_addr:  {:#x}", kernel_code_addr);
@@ -322,9 +325,9 @@ impl Process {
 
                 // 先在用户页表上分配
                 alloc_pages(&mut mapper, code_addr, proc_size as usize).expect("proc mem alloc 754");
-                // 接下来，把用户页表的地址映射到内核页表上，并在内核页表上分配
-                let user_code_phys_frame = mapper.translate_addr(VirtAddr::new(code_addr)).expect("Map fail 12341");
-                alloc_pages_to_known_phys(&mut kernel_mapper, kernel_code_addr, proc_size as usize, user_code_phys_frame.as_u64(), true).expect("proc mem alloc 564");
+                // // 接下来，把用户页表的地址映射到内核页表上，并在内核页表上分配
+                // let user_code_phys_frame = mapper.translate_addr(VirtAddr::new(code_addr)).expect("Map fail 12341");
+                // alloc_pages_to_known_phys(&mut kernel_mapper, kernel_code_addr, proc_size as usize, user_code_phys_frame.as_u64(), true).expect("proc mem alloc 564");
 
                 entry_point = obj.entry();
                 debugln!("entry_point:{:#x}",entry_point);
@@ -369,9 +372,9 @@ impl Process {
 
         // 先在用户页表上分配
         alloc_pages(&mut mapper, heap_addr as u64, DEFAULT_HEAP_SIZE).expect("proc heap mem alloc failed 8520");
-        // 再映射到内核页表上
-        let heap_frame = mapper.translate_addr(VirtAddr::new(heap_addr as u64)).expect("map fail 7897");
-        alloc_pages_to_known_phys(&mut kernel_mapper, heap_addr as u64, DEFAULT_HEAP_SIZE, heap_frame.as_u64(), true).expect("proc heap mem alloc failed 3652");
+        // // 再映射到内核页表上
+        // let heap_frame = mapper.translate_addr(VirtAddr::new(heap_addr as u64)).expect("map fail 7897");
+        // alloc_pages_to_known_phys(&mut kernel_mapper, heap_addr as u64, DEFAULT_HEAP_SIZE, heap_frame.as_u64(), true).expect("proc heap mem alloc failed 3652");
 
         unsafe { allocator.init(heap_addr, DEFAULT_HEAP_SIZE) };
         let allocator = Arc::new(Locked::new(allocator));
@@ -437,8 +440,6 @@ impl Process {
         set_id(self.id); // 要换咯！
         // 发射！
         unsafe {
-            asm!("int 0x13");
-
             let (_, flags) = Cr3::read();
             Cr3::write(self.page_table_frame, flags);
 
@@ -453,7 +454,7 @@ impl Process {
             in(reg) syskrnl::gdt::GDT.1.user_data_selector.0,
             in(reg) self.stack_addr,
             in(reg) syskrnl::gdt::GDT.1.user_code_selector.0,
-            in(reg) self.entry_point,
+            in(reg) self.code_addr + self.entry_point,
             in("rdi") args_ptr,
             in("rsi") args_len,
             );
