@@ -7,3 +7,8 @@ start.sh
 
 *.iso
 *.img
+
+src/usrbin/target
+src/usrbin/.idea
+src/usrbin/.vscode
+src/usrbin/.vs
