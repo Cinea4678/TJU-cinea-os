@@ -5,7 +5,7 @@
 ///
 
 use core::alloc::{GlobalAlloc, Layout};
-use core::mem;
+use core::{fmt, mem};
 
 use super::{align_up, Locked};
 
@@ -33,13 +33,22 @@ impl ListNode {
 
 pub struct LinkedListAllocator {
     head: ListNode,
+    size: usize,
+    allocated: usize,
+}
+
+impl fmt::Debug for LinkedListAllocator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "LinkedListAllocator [size: {} allocated: {}]", self.size, self.allocated)
+    }
 }
 
 impl LinkedListAllocator {
-    /// 新建一个Bump Allocator
     pub const fn new() -> Self {
         Self {
             head: ListNode::new(0),
+            size: 0,
+            allocated: 0,
         }
     }
 
@@ -48,6 +57,7 @@ impl LinkedListAllocator {
     /// 很显然，这个方法是不安全的，因为给定的区间需要确保未被使用，此外这个函数也不能被多次调用
     pub unsafe fn init(&mut self, heap_start: usize, heap_size: usize) {
         self.add_free_region(heap_start, heap_size);
+        self.size = heap_size;
     }
 
     /// 将指定的内存区域增加到链表中
@@ -151,22 +161,20 @@ impl LinkedListAllocator {
         let size = layout.size().max(mem::size_of::<ListNode>());
         (size, layout.align())
     }
-}
 
-unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
-    unsafe fn alloc(&self, layout:Layout)->*mut u8{
+    pub unsafe fn alloc(&mut self, layout: Layout) -> *mut u8 {
         // 进行布局调整
         let (size, align) = LinkedListAllocator::size_align(layout);
-        let mut allocator = self.lock();
 
-        if let Some((region,alloc_start)) = allocator.find_region(size,align) {
+        if let Some((region, alloc_start)) = self.find_region(size, align) {
             // 找到了，进行分配
             let alloc_end = alloc_start.checked_add(size).expect("overflow");
             let excess_size = region.end_addr() - alloc_end;
             if excess_size > 0 {
                 // 有剩余空间，把它加入到链表中
-                allocator.add_free_region(alloc_end, excess_size);
+                self.add_free_region(alloc_end, excess_size);
             }
+            self.allocated += layout.size();
             alloc_start as *mut u8
         } else {
             // 没找到，返回空指针
@@ -174,9 +182,30 @@ unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
         }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        let (size,_) = LinkedListAllocator::size_align(layout);
+    pub unsafe fn dealloc(&mut self, ptr: *mut u8, layout: Layout) {
+        let (size, _) = LinkedListAllocator::size_align(layout);
 
-        self.lock().add_free_region(ptr as usize, size);
+        self.add_free_region(ptr as usize, size);
+        self.allocated -= layout.size();
+    }
+
+    /// 生长，在已有的基础上生长一定的长度
+    pub unsafe fn grow(&mut self, heap_start: usize, heap_size: usize) {
+        self.add_free_region(heap_start, heap_size);
+        self.size += heap_size
+    }
+
+    pub fn free_space(&self) -> usize {
+        self.size - self.allocated
+    }
+}
+
+unsafe impl GlobalAlloc for Locked<LinkedListAllocator> {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        self.lock().alloc(layout)
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        self.lock().dealloc(ptr, layout)
     }
 }

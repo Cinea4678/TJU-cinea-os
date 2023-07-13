@@ -1,5 +1,6 @@
 pub mod syscall;
 pub mod proc;
+pub mod allocator;
 
 #[macro_export]
 macro_rules! entry_point {

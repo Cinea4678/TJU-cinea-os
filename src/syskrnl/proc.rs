@@ -1,6 +1,7 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::arch::asm;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -11,8 +12,10 @@ use spin::RwLock;
 use x86_64::structures::idt::InterruptStackFrameValue;
 use x86_64::VirtAddr;
 
-use crate::{debugln, println, syskrnl};
+use crate::{debugln, syskrnl};
 use crate::sysapi::proc::ExitCode;
+use crate::syskrnl::allocator::{alloc_pages, Locked};
+use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
@@ -21,6 +24,9 @@ const MAX_PROC_SIZE: usize = 10 << 20;
 
 pub static PID: AtomicUsize = AtomicUsize::new(0);
 pub static MAX_PID: AtomicUsize = AtomicUsize::new(1);
+
+pub static PROC_HEAP_ADDR: AtomicUsize = AtomicUsize::new(0x0002_0000_0000);
+const DEFAULT_HEAP_SIZE: usize = 0x4000; // 默认堆内存大小
 
 static mut RSP: usize = 0;
 static mut RFLAGS: usize = 0;
@@ -67,6 +73,7 @@ pub struct Process {
     registers: Registers,
     data: ProcessData,
     parent: usize,
+    allocator: Arc<Locked<LinkedListAllocator>>
 }
 
 impl ProcessData {
@@ -101,6 +108,7 @@ impl Process {
             registers: Registers::default(),
             data: ProcessData::new("/", None),
             parent: 0,
+            allocator: Arc::new(Locked::new(LinkedListAllocator::new()))
         }
     }
 }
@@ -216,13 +224,29 @@ pub fn set_stack_frame(stack_frame: InterruptStackFrameValue) {
     proc.stack_frame = stack_frame;
 }
 
+/// 获取当前进程的堆分配器
+pub fn heap_allocator() -> Arc<Locked<LinkedListAllocator>> {
+    let table = PROCESS_TABLE.read();
+    let proc = &table[id()];
+    proc.allocator.clone()
+}
+
+/// 生长当前进程的堆
+pub fn allocator_grow(size: usize) {
+    let table = PROCESS_TABLE.write();
+    let allocator = table[id()].allocator.clone();
+    let addr = PROC_HEAP_ADDR.fetch_add(size, Ordering::SeqCst);
+    alloc_pages(addr as u64, size).expect("proc mem grow fail 1545");
+    unsafe { allocator.lock().grow(addr, size); };
+}
+
 /// 进程退出
 pub fn exit() {
     let table = PROCESS_TABLE.read();
     let proc = &table[id()];
     syskrnl::allocator::free_pages(proc.code_addr, MAX_PROC_SIZE);
     MAX_PID.fetch_sub(1, Ordering::SeqCst);
-    set_id(proc.parent); // FIXME: 因为目前还不存在调度，所以直接设置为0
+    set_id(proc.parent); // FIXME: 因为目前还不存在调度，所以直接设置为父进程
 }
 
 /***************************
@@ -240,7 +264,7 @@ impl Process {
     /// 创建进程
     pub fn spawn(bin: &[u8], args_ptr: usize, args_len: usize) -> Result<(), ExitCode> {
         if let Ok(id) = Self::create(bin) {
-            let proc = {
+            let mut proc = {
                 let table = PROCESS_TABLE.read();
                 table[id].clone()
             };
@@ -269,7 +293,7 @@ impl Process {
                 for segment in obj.segments() {
                     let addr = segment.address() as usize;
                     if let Ok(data) = segment.data() {
-                        // debugln!("before flight? codeaddr,addr is {:#x},{:#x}", code_addr, addr);
+                        debugln!("before flight? codeaddr,addr,datalen is {:#x},{:#x},{}", code_addr, addr, data.len());
                         for (i, b) in data.iter().enumerate() {
                             unsafe {
                                 //debugln!("code:       {:#x}", code_ptr.add(addr + i) as usize);
@@ -301,6 +325,13 @@ impl Process {
         let stack_frame = parent.stack_frame;
         let parent = parent.id;
 
+        // 初始化进程的堆分配器
+        let mut allocator = LinkedListAllocator::new();
+        let heap_addr = PROC_HEAP_ADDR.fetch_add(DEFAULT_HEAP_SIZE, Ordering::SeqCst);
+        syskrnl::allocator::alloc_pages(heap_addr as u64, DEFAULT_HEAP_SIZE).expect("proc heap mem alloc failed");
+        unsafe { allocator.init(heap_addr, DEFAULT_HEAP_SIZE) };
+        let allocator = Arc::new(Locked::new(allocator));
+
         let id = MAX_PID.fetch_add(1, Ordering::SeqCst);
         let proc = Process {
             id,
@@ -311,6 +342,7 @@ impl Process {
             stack_frame,
             entry_point,
             parent,
+            allocator
         };
 
         let mut table = PROCESS_TABLE.write();
@@ -320,8 +352,7 @@ impl Process {
     }
 
     // 切换到用户空间并执行程序
-    fn exec(&self, args_ptr: usize, args_len: usize) {
-        let heap_addr = self.code_addr + (self.stack_addr - self.code_addr) / 2;
+    fn exec(&mut self, args_ptr: usize, args_len: usize) {
         //syskrnl::allocator::alloc_pages(heap_addr, 1).expect("proc heap alloc");
 
         // 处理参数
@@ -329,13 +360,17 @@ impl Process {
         let args: &[&str] = unsafe {
             core::slice::from_raw_parts(args_ptr as *const &str, args_len)
         };
-        let mut addr = heap_addr;
+        if args_len > 0 {
+            debugln!("{:?}",args[0]);
+        }
+        let mut addr = unsafe { self.allocator.lock().alloc(core::alloc::Layout::from_size_align(1024, 1).expect("Layout fault 8569")) as u64 };
         let vec: Vec<&str> = args.iter().map(|arg| {
             let ptr = addr as *mut u8;
             addr += arg.len() as u64;
             unsafe {
                 let s = core::slice::from_raw_parts_mut(ptr, arg.len());
                 s.copy_from_slice(arg.as_bytes());
+                debugln!("{:?}",s);
                 core::str::from_utf8_unchecked(s)
             }
         }).collect();

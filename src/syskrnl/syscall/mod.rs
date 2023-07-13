@@ -32,6 +32,13 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, _arg
         LOG => {
             service::log(arg1, arg2)
         }
+        ALLOC => {
+            service::alloc(arg1, arg2)
+        },
+        FREE => {
+            service::free(arg1, arg2, arg3);
+            0
+        },
         _ => panic!("unknown syscall id: {}", syscall_id),
     }
 }

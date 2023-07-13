@@ -1,4 +1,5 @@
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+
 use bootloader::BootInfo;
 use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
@@ -7,9 +8,9 @@ use x86_64::{
     VirtAddr,
 };
 use x86_64::instructions::interrupts;
-use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
-use crate::{println, syskrnl};
+use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, PhysFrame, Size4KiB};
 
+use crate::{println, syskrnl};
 
 pub mod graphic_support;
 
@@ -25,6 +26,7 @@ pub fn memory_size() -> u64 {
 pub fn init(bootinfo: &'static BootInfo) {
     interrupts::without_interrupts(|| {
         let mut memory_size = 0;
+
         for region in bootinfo.memory_map.iter() {
             let start_addr = region.range.start_addr();
             let end_addr = region.range.end_addr();

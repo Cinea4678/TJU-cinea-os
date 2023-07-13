@@ -11,8 +11,9 @@ use x86_64::{
 use linked_list::LinkedListAllocator;
 
 pub mod bump;
-mod linked_list;
+pub mod linked_list;
 
+#[derive(Debug)]
 pub struct Locked<A> {
     inner: spin::Mutex<A>,
 }

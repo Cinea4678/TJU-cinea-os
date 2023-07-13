@@ -11,3 +11,7 @@ pub const STOP:     usize = 0xA;
 pub const SLEEP:    usize = 0xB;
 /// 打印日志 (2): a0-msg, a1-len
 pub const LOG:      usize = 0xC;
+/// 分配堆内存 (2): a0-size a1-align ret-ptr(usize)
+pub const ALLOC:    usize = 0xD;
+/// 归还堆内存 (3): a0-ptr a1-size a2-align
+pub const FREE:     usize = 0xE;
