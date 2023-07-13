@@ -3,9 +3,12 @@
 
 extern crate alloc;
 
-use cinea_os::entry_point;
+use cinea_os::{entry_point, sysapi};
 
 entry_point!(main);
+
+#[global_allocator]
+static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::UserProcAllocator;
 
 fn main(args: &[&str]) {
     return ;

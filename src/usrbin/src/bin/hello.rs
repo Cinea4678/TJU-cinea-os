@@ -3,10 +3,13 @@
 
 extern crate alloc;
 
-use cinea_os::entry_point;
+use cinea_os::{entry_point, sysapi};
 use cinea_os::sysapi::syscall;
 
 entry_point!(main);
+
+#[global_allocator]
+static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::UserProcAllocator;
 
 use core::convert::Infallible;
 use ufmt::{uWrite, uwriteln};
@@ -24,7 +27,7 @@ impl uWrite for MyWriter {
 
 fn main(args: &[&str]) {
     let mut stdout = MyWriter;
-    if args.len() > 0 {
+    if args.len() > 1 {
         uwriteln!(stdout, "Hello, {}", args[0]).unwrap();
     } else {
         uwriteln!(stdout, "\nHello World From User-Space!\n").unwrap();

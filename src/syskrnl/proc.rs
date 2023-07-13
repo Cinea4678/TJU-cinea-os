@@ -9,12 +9,14 @@ use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use lazy_static::lazy_static;
 use object::{Object, ObjectSegment};
 use spin::RwLock;
+use x86_64::registers::control::Cr3;
 use x86_64::structures::idt::InterruptStackFrameValue;
+use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Translate};
 use x86_64::VirtAddr;
 
 use crate::{debugln, syskrnl};
-use crate::sysapi::proc::ExitCode;
-use crate::syskrnl::allocator::{alloc_pages, Locked};
+use crate::syskrnl::sysapi::ExitCode;
+use crate::syskrnl::allocator::{alloc_pages, alloc_pages_to_known_phys, Locked};
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
 
 // const MAX_FILE_HANDLES: usize = 64;
@@ -69,11 +71,12 @@ pub struct Process {
     code_addr: u64,
     stack_addr: u64,
     entry_point: u64,
+    page_table_frame: PhysFrame,
     stack_frame: InterruptStackFrameValue,
     registers: Registers,
     data: ProcessData,
     parent: usize,
-    allocator: Arc<Locked<LinkedListAllocator>>
+    allocator: Arc<Locked<LinkedListAllocator>>,
 }
 
 impl ProcessData {
@@ -105,10 +108,11 @@ impl Process {
             stack_addr: 0,
             entry_point: 0,
             stack_frame: isf,
+            page_table_frame: Cr3::read().0,
             registers: Registers::default(),
             data: ProcessData::new("/", None),
             parent: 0,
-            allocator: Arc::new(Locked::new(LinkedListAllocator::new()))
+            allocator: Arc::new(Locked::new(LinkedListAllocator::new())),
         }
     }
 }
@@ -233,10 +237,14 @@ pub fn heap_allocator() -> Arc<Locked<LinkedListAllocator>> {
 
 /// 生长当前进程的堆
 pub fn allocator_grow(size: usize) {
+    let page_table = unsafe { page_table() };
+    let phys_mem_offset = unsafe { syskrnl::memory::PHYS_MEM_OFFSET };
+    let mut mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
+
     let table = PROCESS_TABLE.write();
     let allocator = table[id()].allocator.clone();
     let addr = PROC_HEAP_ADDR.fetch_add(size, Ordering::SeqCst);
-    alloc_pages(addr as u64, size).expect("proc mem grow fail 1545");
+    alloc_pages(&mut mapper, addr as u64, size).expect("proc mem grow fail 1545");
     unsafe { allocator.lock().grow(addr, size); };
 }
 
@@ -247,6 +255,16 @@ pub fn exit() {
     syskrnl::allocator::free_pages(proc.code_addr, MAX_PROC_SIZE);
     MAX_PID.fetch_sub(1, Ordering::SeqCst);
     set_id(proc.parent); // FIXME: 因为目前还不存在调度，所以直接设置为父进程
+}
+
+unsafe fn page_table_frame() -> PhysFrame {
+    let table = PROCESS_TABLE.read();
+    let proc = &table[id()];
+    proc.page_table_frame
+}
+
+pub unsafe fn page_table() -> &'static mut PageTable {
+    syskrnl::memory::create_page_table(page_table_frame())
 }
 
 /***************************
@@ -276,24 +294,44 @@ impl Process {
     }
 
     fn create(bin: &[u8]) -> Result<usize, ()> {
+        let page_table_frame = syskrnl::memory::frame_allocator().allocate_frame().expect("frame alloc failed");
+        let page_table = unsafe { syskrnl::memory::create_page_table(page_table_frame) };
+        let kernel_page_table = unsafe { syskrnl::memory::active_page_table() };
+
+        // for (user_page, kernel_page) in page_table.iter_mut().zip(kernel_page_table.iter()) {
+        //     *user_page = kernel_page.clone();
+        // }
+
+        let phys_mem_offset = unsafe { syskrnl::memory::PHYS_MEM_OFFSET };
+        let mut mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
+        let mut kernel_mapper = unsafe { OffsetPageTable::new(kernel_page_table, VirtAddr::new(phys_mem_offset)) };
+
         let proc_size = MAX_PROC_SIZE as u64;
-        let code_addr = CODE_ADDR.fetch_add(proc_size, Ordering::SeqCst);
+        let kernel_code_addr = CODE_ADDR.fetch_add(proc_size, Ordering::SeqCst);
+        let code_addr = 0u64;
         let stack_addr = code_addr + proc_size - 4096;
         // 紧跟在程序段后面
-        debugln!("code_addr:  {:#x}", code_addr);
+        debugln!("code_addr:  {:#x}", kernel_code_addr);
         debugln!("stack_addr: {:#x}", stack_addr);
 
         let mut entry_point = 0;
-        let code_ptr = code_addr as *mut u8;
+        let code_ptr = kernel_code_addr as *mut u8;
+        let code_size = bin.len();
         if bin[0..4] == ELF_MAGIC { // 进程代码是ELF格式的
             if let Ok(obj) = object::File::parse(bin) {
-                syskrnl::allocator::alloc_pages(code_addr, proc_size as usize).expect("proc mem alloc");
+
+                // 先在用户页表上分配
+                alloc_pages(&mut mapper, code_addr, proc_size as usize).expect("proc mem alloc 754");
+                // 接下来，把用户页表的地址映射到内核页表上，并在内核页表上分配
+                let user_code_phys_frame = mapper.translate_addr(VirtAddr::new(code_addr)).expect("Map fail 12341");
+                alloc_pages_to_known_phys(&mut kernel_mapper, kernel_code_addr, proc_size as usize, user_code_phys_frame.as_u64(), true).expect("proc mem alloc 564");
+
                 entry_point = obj.entry();
                 debugln!("entry_point:{:#x}",entry_point);
                 for segment in obj.segments() {
                     let addr = segment.address() as usize;
                     if let Ok(data) = segment.data() {
-                        debugln!("before flight? codeaddr,addr,datalen is {:#x},{:#x},{}", code_addr, addr, data.len());
+                        debugln!("before flight? codeaddr,addr,datalen is {:#x},{:#x},{}", kernel_code_addr, addr, data.len());
                         for (i, b) in data.iter().enumerate() {
                             unsafe {
                                 //debugln!("code:       {:#x}", code_ptr.add(addr + i) as usize);
@@ -305,7 +343,7 @@ impl Process {
                 }
             }
         } else if bin[0..4] == BIN_MAGIC {
-            for (i, b) in bin.iter().enumerate() {
+            for (i, b) in bin.iter().skip(4).enumerate() {
                 unsafe {
                     core::ptr::write(code_ptr.add(i), *b);
                 }
@@ -328,7 +366,13 @@ impl Process {
         // 初始化进程的堆分配器
         let mut allocator = LinkedListAllocator::new();
         let heap_addr = PROC_HEAP_ADDR.fetch_add(DEFAULT_HEAP_SIZE, Ordering::SeqCst);
-        syskrnl::allocator::alloc_pages(heap_addr as u64, DEFAULT_HEAP_SIZE).expect("proc heap mem alloc failed");
+
+        // 先在用户页表上分配
+        alloc_pages(&mut mapper, heap_addr as u64, DEFAULT_HEAP_SIZE).expect("proc heap mem alloc failed 8520");
+        // 再映射到内核页表上
+        let heap_frame = mapper.translate_addr(VirtAddr::new(heap_addr as u64)).expect("map fail 7897");
+        alloc_pages_to_known_phys(&mut kernel_mapper, heap_addr as u64, DEFAULT_HEAP_SIZE, heap_frame.as_u64(), true).expect("proc heap mem alloc failed 3652");
+
         unsafe { allocator.init(heap_addr, DEFAULT_HEAP_SIZE) };
         let allocator = Arc::new(Locked::new(allocator));
 
@@ -342,7 +386,8 @@ impl Process {
             stack_frame,
             entry_point,
             parent,
-            allocator
+            allocator,
+            page_table_frame,
         };
 
         let mut table = PROCESS_TABLE.write();
@@ -354,6 +399,9 @@ impl Process {
     // 切换到用户空间并执行程序
     fn exec(&mut self, args_ptr: usize, args_len: usize) {
         //syskrnl::allocator::alloc_pages(heap_addr, 1).expect("proc heap alloc");
+        let page_table = unsafe { page_table() };
+        let phys_mem_offset = unsafe { syskrnl::memory::PHYS_MEM_OFFSET };
+        let mut mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
 
         // 处理参数
         let args_ptr = ptr_from_addr(args_ptr as u64) as usize;
@@ -389,8 +437,13 @@ impl Process {
         set_id(self.id); // 要换咯！
         // 发射！
         unsafe {
+            asm!("int 0x13");
+
+            let (_, flags) = Cr3::read();
+            Cr3::write(self.page_table_frame, flags);
+
             asm!(
-            "cli",      // 关中断
+            "cli",        // 关中断
             "push {:r}",  // Stack segment (SS)
             "push {:r}",  // Stack pointer (RSP)
             "push 0x200", // RFLAGS with interrupts enabled
@@ -400,7 +453,7 @@ impl Process {
             in(reg) syskrnl::gdt::GDT.1.user_data_selector.0,
             in(reg) self.stack_addr,
             in(reg) syskrnl::gdt::GDT.1.user_code_selector.0,
-            in(reg) self.code_addr + self.entry_point,
+            in(reg) self.entry_point,
             in("rdi") args_ptr,
             in("rsi") args_len,
             );

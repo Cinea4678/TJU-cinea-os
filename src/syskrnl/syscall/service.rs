@@ -1,5 +1,5 @@
 use crate::{debugln, println, syskrnl};
-use crate::sysapi::proc::ExitCode;
+use crate::syskrnl::sysapi::ExitCode;
 use crate::syskrnl::proc::Process;
 
 pub fn exit(code: ExitCode) -> ExitCode {

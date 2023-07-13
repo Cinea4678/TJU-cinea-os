@@ -13,7 +13,7 @@ extern crate alloc;
 use bootloader::BootInfo;
 
 pub mod syskrnl;
-pub mod sysapi;
+//pub mod sysapi;
 
 pub fn init(bootinfo: &'static BootInfo) {
     // 加载GDT

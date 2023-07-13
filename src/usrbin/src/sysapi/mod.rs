@@ -1,6 +1,7 @@
 pub mod syscall;
 pub mod proc;
 pub mod allocator;
+pub mod call;
 
 #[macro_export]
 macro_rules! entry_point {
@@ -21,3 +22,21 @@ macro_rules! entry_point {
     };
 }
 
+#[macro_export]
+macro_rules! syscall {
+    ($n:expr) => (
+        $crate::sysapi::syscall::syscall0(
+            $n as usize));
+    ($n:expr, $a1:expr) => (
+        $crate::sysapi::syscall::syscall1(
+            $n as usize, $a1 as usize));
+    ($n:expr, $a1:expr, $a2:expr) => (
+        $crate::sysapi::syscall::syscall2(
+            $n as usize, $a1 as usize, $a2 as usize));
+    ($n:expr, $a1:expr, $a2:expr, $a3:expr) => (
+        $crate::sysapi::syscall::syscall3(
+            $n as usize, $a1 as usize, $a2 as usize, $a3 as usize));
+    ($n:expr, $a1:expr, $a2:expr, $a3:expr, $a4:expr) => (
+        $crate::sysapi::syscall::syscall4(
+            $n as usize, $a1 as usize, $a2 as usize, $a3 as usize, $a4 as usize));
+}

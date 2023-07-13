@@ -8,7 +8,8 @@ use x86_64::{
     VirtAddr,
 };
 use x86_64::instructions::interrupts;
-use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, PhysFrame, Size4KiB};
+use x86_64::registers::control::Cr3;
+use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, PhysFrame, Size4KiB, Translate};
 
 use crate::{println, syskrnl};
 
@@ -16,6 +17,8 @@ pub mod graphic_support;
 
 pub static mut PHYS_MEM_OFFSET: u64 = 0;
 pub static mut MEMORY_MAP: Option<&MemoryMap> = None;
+pub static mut MAPPER: Option<OffsetPageTable<'static>> = None;
+
 pub static MEMORY_SIZE: AtomicU64 = AtomicU64::new(0);
 static ALLOCATED_FRAMES: AtomicUsize = AtomicUsize::new(0);
 
@@ -38,23 +41,19 @@ pub fn init(bootinfo: &'static BootInfo) {
 
         unsafe { PHYS_MEM_OFFSET = bootinfo.physical_memory_offset };
         unsafe { MEMORY_MAP.replace(&bootinfo.memory_map) };
+        unsafe { MAPPER.replace(OffsetPageTable::new(active_page_table(), VirtAddr::new(PHYS_MEM_OFFSET))) };
 
-        let mut mapper = unsafe { mapper(VirtAddr::new(PHYS_MEM_OFFSET)) };
+        let mut mapper = mapper();
         let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&bootinfo.memory_map) };
 
-        syskrnl::allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialization failed");
+        syskrnl::allocator::init_heap(mapper, &mut frame_allocator).expect("heap initialization failed");
 
         syskrnl::graphic::enter_wide_mode(&mut mapper, &mut frame_allocator); // 因为需要分配显存，就放在这里了
     });
 }
 
-/// 初始化偏移页表
-///
-/// 这个函数是危险的，因为其调用的函数具有危险性。
-/// 详情请见active_level_4_table
-pub unsafe fn mapper(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static> {
-    let level_4_table = active_level_4_table(physical_memory_offset);
-    OffsetPageTable::new(level_4_table, physical_memory_offset)
+pub fn mapper() -> &'static mut OffsetPageTable<'static> {
+    unsafe { MAPPER.as_mut().unwrap() }
 }
 
 /// 返回用于激活Level 4页表的引用。
@@ -63,8 +62,6 @@ pub unsafe fn mapper(physical_memory_offset: VirtAddr) -> OffsetPageTable<'stati
 /// 将会造成panic。此外，重复调用这个函数也是危险的，因为它会返回静态
 /// 可变引用。
 unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
-    use x86_64::registers::control::Cr3;
-
     let (level_4_table_frame, _) = Cr3::read();
 
     let physics = level_4_table_frame.start_address();
@@ -87,7 +84,6 @@ pub unsafe fn translate_addr(addr: VirtAddr, physical_memory_offset: VirtAddr) -
 /// 虽然没有给出unsafe，但是它是危险的。
 fn translate_addr_inner(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Option<PhysAddr> {
     use x86_64::structures::paging::page_table::FrameError;
-    use x86_64::registers::control::Cr3;
 
     // 从CR3读当前活跃的L4页帧
     let (level_4_table_frame, _) = Cr3::read();
@@ -137,13 +133,32 @@ pub fn create_example_mapping(
     map_to_result.expect("Map_to Failed").flush();
 }
 
-/// 虚拟的帧分配器
-pub struct EmptyFrameAllocator;
+pub fn phys_to_virt(addr: PhysAddr) -> VirtAddr {
+    let phys_mem_offset = unsafe { PHYS_MEM_OFFSET };
+    VirtAddr::new(addr.as_u64() + phys_mem_offset)
+}
 
-unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
-    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
-        None
-    }
+pub fn virt_to_phys(addr: VirtAddr) -> Option<PhysAddr> {
+    mapper().translate_addr(addr)
+}
+
+pub fn virt_to_phys_from_mapper(mapper: &mut OffsetPageTable, addr: VirtAddr) -> Option<PhysAddr> {
+    mapper.translate_addr(addr)
+}
+
+pub unsafe fn active_page_table() -> &'static mut PageTable {
+    let (frame, _) = Cr3::read();
+    let phys_addr = frame.start_address();
+    let virt_addr = phys_to_virt(phys_addr);
+    let page_table_ptr: *mut PageTable = virt_addr.as_mut_ptr();
+    &mut *page_table_ptr // unsafe
+}
+
+pub unsafe fn create_page_table(frame: PhysFrame) -> &'static mut PageTable {
+    let phys_addr = frame.start_address();
+    let virt_addr = phys_to_virt(phys_addr);
+    let page_table_ptr: *mut PageTable = virt_addr.as_mut_ptr();
+    &mut *page_table_ptr // unsafe
 }
 
 /// 帧分配器，返回BootLoader的内存映射中的可用帧
@@ -186,3 +201,6 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
     }
 }
 
+pub fn frame_allocator() -> BootInfoFrameAllocator {
+    unsafe { BootInfoFrameAllocator::init(MEMORY_MAP.unwrap()) }
+}

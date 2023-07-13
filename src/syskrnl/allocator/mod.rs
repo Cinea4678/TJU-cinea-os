@@ -1,14 +1,15 @@
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
 
-use x86_64::{
-    structures::paging::{
-        FrameAllocator, Mapper, mapper::MapToError, Page, PageTableFlags, Size4KiB,
-    },
-    VirtAddr,
-};
+use x86_64::{PhysAddr, structures::paging::{
+    FrameAllocator, Mapper, mapper::MapToError, Page, PageTableFlags, Size4KiB,
+}, VirtAddr};
+use x86_64::structures::paging::{OffsetPageTable, PhysFrame};
+use x86_64::structures::paging::page::PageRangeInclusive;
 
 use linked_list::LinkedListAllocator;
+
+use crate::{debugln, syskrnl};
 
 pub mod bump;
 pub mod linked_list;
@@ -83,12 +84,9 @@ pub fn init_heap(
     Ok(())
 }
 
-use x86_64::structures::paging::page::PageRangeInclusive;
-use crate::{debugln, syskrnl};
-
 // TODO: Replace `free` by `dealloc`
 pub fn free_pages(addr: u64, size: usize) {
-    let mut mapper = unsafe { syskrnl::memory::mapper(VirtAddr::new(syskrnl::memory::PHYS_MEM_OFFSET)) };
+    let mut mapper = unsafe { syskrnl::memory::mapper() };
     let pages: PageRangeInclusive<Size4KiB> = {
         let start_page = Page::containing_address(VirtAddr::new(addr));
         let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));
@@ -103,9 +101,8 @@ pub fn free_pages(addr: u64, size: usize) {
     }
 }
 
-pub fn alloc_pages(addr: u64, size: usize) -> Result<(), ()> {
-    let mut mapper = unsafe { syskrnl::memory::mapper(VirtAddr::new(syskrnl::memory::PHYS_MEM_OFFSET)) };
-    let mut frame_allocator = unsafe { syskrnl::memory::BootInfoFrameAllocator::init(syskrnl::memory::MEMORY_MAP.unwrap()) };
+pub fn alloc_pages(mapper: &mut OffsetPageTable, addr: u64, size: usize) -> Result<(), ()> {
+    let mut frame_allocator = syskrnl::memory::frame_allocator();
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
     let pages = {
         let start_page = Page::containing_address(VirtAddr::new(addr));
@@ -132,6 +129,33 @@ pub fn alloc_pages(addr: u64, size: usize) -> Result<(), ()> {
     }
     Ok(())
 }
+
+pub fn alloc_pages_to_known_phys(mapper: &mut OffsetPageTable, addr: u64, size: usize, phys_start: u64, user_accessible: bool) -> Result<(), ()> {
+    let mut frame_allocator = syskrnl::memory::frame_allocator();
+    let mut flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+    if user_accessible { flags |= PageTableFlags::USER_ACCESSIBLE };
+    let pages = {
+        let start_page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(addr));
+        let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));
+        Page::range_inclusive(start_page, end_page)
+    };
+    for (i, page) in pages.enumerate() {
+        //debugln!("Alloc page {:?}", page);
+        let frame = PhysFrame::containing_address(PhysAddr::new(phys_start + 0x1000 * i as u64));
+        //debugln!("Alloc frame {:?}", frame);
+        unsafe {
+            if let Ok(mapping) = mapper.map_to(page, frame, flags, &mut frame_allocator) {
+                //debugln!("Mapped {:?} to {:?}", page, frame);
+                mapping.flush();
+            } else {
+                debugln!("Could not map {:?} to {:?}", page, frame);
+                return Err(());
+            }
+        }
+    }
+    Ok(())
+}
+
 
 #[allow(dead_code)]
 pub fn test_allocator() {
