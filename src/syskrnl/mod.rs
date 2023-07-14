@@ -10,6 +10,7 @@ pub mod clock;
 pub mod time;
 pub mod syscall;
 pub mod proc;
+pub mod schedule;
 pub mod sysapi;
 
 #[macro_use]

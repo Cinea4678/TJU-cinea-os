@@ -4,7 +4,7 @@ use core::ptr::null_mut;
 use x86_64::{PhysAddr, structures::paging::{
     FrameAllocator, Mapper, mapper::MapToError, Page, PageTableFlags, Size4KiB,
 }, VirtAddr};
-use x86_64::structures::paging::{OffsetPageTable, PhysFrame, Translate};
+use x86_64::structures::paging::{OffsetPageTable, PhysFrame};
 use x86_64::structures::paging::page::PageRangeInclusive;
 
 use linked_list::LinkedListAllocator;
@@ -86,7 +86,7 @@ pub fn init_heap(
 
 // TODO: Replace `free` by `dealloc`
 pub fn free_pages(addr: u64, size: usize) {
-    let mut mapper = unsafe { syskrnl::memory::mapper() };
+    let mapper = syskrnl::memory::mapper();
     let pages: PageRangeInclusive<Size4KiB> = {
         let start_page = Page::containing_address(VirtAddr::new(addr));
         let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));

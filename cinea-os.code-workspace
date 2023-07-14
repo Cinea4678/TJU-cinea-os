@@ -1,11 +1,13 @@
 {
-	"folders": [
-		{
-			"path": "src/usrbin"
-		},
-		{
-			"path": "."
-		}
-	],
-	"settings": {}
+    "folders": [
+        {
+            "path": "src/usrbin"
+        },
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "rust-analyzer.linkedProjects": [".\\Cargo.toml", ".\\Cargo.toml"]
+    }
 }

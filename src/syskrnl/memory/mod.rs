@@ -9,7 +9,7 @@ use x86_64::{
 };
 use x86_64::instructions::interrupts;
 use x86_64::registers::control::Cr3;
-use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageTableFlags, PhysFrame, Size4KiB, Translate};
+use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB, Translate};
 
 use crate::{println, syskrnl};
 
@@ -61,7 +61,7 @@ pub fn mapper() -> &'static mut OffsetPageTable<'static> {
 /// 必须指出，这个函数是危险的。如果Physical Memory Offset错误给出，
 /// 将会造成panic。此外，重复调用这个函数也是危险的，因为它会返回静态
 /// 可变引用。
-unsafe fn active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
+unsafe fn _active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mut PageTable {
     let (level_4_table_frame, _) = Cr3::read();
 
     let physics = level_4_table_frame.start_address();

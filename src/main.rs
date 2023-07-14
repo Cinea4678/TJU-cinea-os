@@ -12,7 +12,7 @@ use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
 
-use cinea_os::{debugln, println, syskrnl};
+use cinea_os::{println, syskrnl};
 
 entry_point!(kernel_main);
 

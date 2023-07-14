@@ -3,6 +3,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use crossbeam::atomic::AtomicCell;
 use core::arch::asm;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
@@ -11,13 +12,15 @@ use object::{Object, ObjectSegment};
 use spin::RwLock;
 use x86_64::registers::control::Cr3;
 use x86_64::structures::idt::InterruptStackFrameValue;
-use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame, Translate};
+use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame};
 use x86_64::VirtAddr;
 
 use crate::{debugln, syskrnl};
 use crate::syskrnl::sysapi::ExitCode;
-use crate::syskrnl::allocator::{alloc_pages, alloc_pages_to_known_phys, fix_page_fault_in_userspace, Locked};
+use crate::syskrnl::allocator::{alloc_pages, fix_page_fault_in_userspace, Locked};
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
+
+use schedule::ProcessScheduler;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
@@ -30,8 +33,9 @@ pub static MAX_PID: AtomicUsize = AtomicUsize::new(1);
 pub static PROC_HEAP_ADDR: AtomicUsize = AtomicUsize::new(0x0002_0000_0000);
 const DEFAULT_HEAP_SIZE: usize = 0x4000; // 默认堆内存大小
 
-static mut RSP: usize = 0;
-static mut RFLAGS: usize = 0;
+lazy_static!{
+    pub static ref SCHEDULER: AtomicCell<dyn ProcessScheduler> = unimplemented!();
+}
 
 lazy_static! {
     pub static ref PROCESS_TABLE: RwLock<[Box<Process>; MAX_PROCS]> = {
@@ -304,7 +308,7 @@ impl Process {
 
         let phys_mem_offset = unsafe { syskrnl::memory::PHYS_MEM_OFFSET };
         let mut mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
-        let mut kernel_mapper = unsafe { OffsetPageTable::new(kernel_page_table, VirtAddr::new(phys_mem_offset)) };
+        let _kernel_mapper = unsafe { OffsetPageTable::new(kernel_page_table, VirtAddr::new(phys_mem_offset)) };
 
         // 特别地，打开用户页表的内核使用权限
         unsafe { fix_page_fault_in_userspace(&mut mapper) };
@@ -319,7 +323,7 @@ impl Process {
 
         let mut entry_point = 0;
         let code_ptr = kernel_code_addr as *mut u8;
-        let code_size = bin.len();
+        let _code_size = bin.len();
         if bin[0..4] == ELF_MAGIC { // 进程代码是ELF格式的
             if let Ok(obj) = object::File::parse(bin) {
 
@@ -404,7 +408,7 @@ impl Process {
         //syskrnl::allocator::alloc_pages(heap_addr, 1).expect("proc heap alloc");
         let page_table = unsafe { page_table() };
         let phys_mem_offset = unsafe { syskrnl::memory::PHYS_MEM_OFFSET };
-        let mut mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
+        let _mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
 
         // 处理参数
         // 重建指针-长度对
