@@ -10,6 +10,6 @@ entry_point!(main);
 #[global_allocator]
 static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::UserProcAllocator;
 
-fn main(args: &[&str]) {
-    return ;
+fn main(_args: &[&str]) {
+    return;
 }

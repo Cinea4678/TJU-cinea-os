@@ -41,7 +41,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
     let subp = include_bytes!("../dsk/bin/shell");
     let args: Vec<&str> = vec![];
-    syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0).unwrap();
+    syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0, 0).unwrap();
     cinea_os::hlt_loop();
 }
 

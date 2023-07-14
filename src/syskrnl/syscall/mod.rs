@@ -11,10 +11,10 @@ use crate::syskrnl::sysapi::ExitCode;
 mod service;
 pub mod call;
 
-pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, _arg4: usize) -> usize {
+pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize) -> usize {
     match syscall_id {
         EXIT => service::exit(ExitCode::from(arg1)) as usize,
-        SPAWN => service::spawn(arg1, arg2, arg3) as usize,
+        SPAWN => service::spawn(arg1, arg2, arg3, arg4) as usize,
         READ => unimplemented!(),
         WRITE => unimplemented!(),
         OPEN => unimplemented!(),

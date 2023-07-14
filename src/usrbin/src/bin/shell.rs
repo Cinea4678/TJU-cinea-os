@@ -3,12 +3,10 @@
 
 extern crate alloc;
 
-use alloc::boxed::Box;
 use alloc::string::String;
-use core::arch::asm;
-use core::ops::Add;
-use cinea_os::{entry_point, sysapi};
 use cinea_os::sysapi::syscall;
+use cinea_os::{entry_point, sysapi, STDOUT};
+use ufmt::uwriteln;
 
 entry_point!(main);
 
@@ -16,15 +14,15 @@ entry_point!(main);
 static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::UserProcAllocator;
 
 fn main(_args: &[&str]) {
-    syscall::log("我是Shell（伪），我正在子进程运行。".as_bytes());
-    syscall::log("进程切换测试。".as_bytes());
-    syscall::log("现在进入子进程。".as_bytes());
-    // unsafe { asm!("int 3") }
-    // let s1 = String::from("Magical ");
-    // let s2 = String::from("World!");
-    // let s3 = s1.add(s2.as_str());
-    syscall::spawn(0, &[/*s3.as_str()*/]).expect("子进程未成功退出");
-    syscall::log("子进程已经安全退出，CPU成功回到父进程（也在Ring3）".as_bytes());
+    uwriteln!(STDOUT.lock(), "我是Shell（伪），以后操作系统就只有我了。我正在子进程运行。").unwrap();
+    uwriteln!(STDOUT.lock(), "进程切换测试。").unwrap();
+    uwriteln!(STDOUT.lock(), "现在进入子进程。").unwrap();
+    syscall::spawn(0, &[String::from("Magical World!").as_str()]).expect("子进程未成功退出");
+    uwriteln!(
+        STDOUT.lock(),
+        "子进程已经安全退出，CPU成功回到父进程（也在Ring3）"
+    )
+    .unwrap();
     loop {
         syscall::sleep(1.0);
     }

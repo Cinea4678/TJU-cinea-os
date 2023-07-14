@@ -1,4 +1,4 @@
-use crate::{debugln, println, syskrnl};
+use crate::{debugln, println, syskrnl, print};
 use crate::syskrnl::sysapi::ExitCode;
 use crate::syskrnl::proc::Process;
 
@@ -12,7 +12,7 @@ pub fn sleep(seconds: f64) {
 }
 
 /// FIXME 在未来，要改正。现在是测试用途
-pub fn spawn(number: usize, args_ptr: usize, args_len: usize) -> ExitCode {
+pub fn spawn(number: usize, args_ptr: usize, args_len: usize, args_cap: usize) -> ExitCode {
     debugln!("{:#x},{}",args_ptr,args_len);
     let subprocess = match number {
         0x00 => include_bytes!("../../../dsk/bin/hello"),
@@ -21,7 +21,7 @@ pub fn spawn(number: usize, args_ptr: usize, args_len: usize) -> ExitCode {
             return ExitCode::OpenError;
         }
     };
-    if let Err(code) = Process::spawn(subprocess, args_ptr, args_len) {
+    if let Err(code) = Process::spawn(subprocess, args_ptr, args_len, args_cap) {
         code
     } else {
         ExitCode::Success
@@ -37,7 +37,7 @@ pub fn log(msg: usize, len: usize) -> usize {
             1
         }
         Ok(s) => {
-            println!("{}", s);
+            print!("{}", s);
             0
         }
     }

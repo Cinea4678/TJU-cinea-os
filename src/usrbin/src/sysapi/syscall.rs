@@ -1,7 +1,9 @@
-use core::arch::asm;
-use crate::sysapi::proc::ExitCode;
+use alloc::vec::Vec;
+
 use crate::sysapi::call::*;
+use crate::sysapi::proc::ExitCode;
 use crate::syscall;
+use core::arch::asm;
 
 pub fn log(buf: &[u8]) -> Option<usize> {
     let ptr = buf.as_ptr() as usize;
@@ -14,7 +16,7 @@ pub fn log(buf: &[u8]) -> Option<usize> {
     }
 }
 
-pub fn log_spc(buf: &[u8]) -> Option<usize> {
+pub fn log_debug(buf: &[u8]) -> Option<usize> {
     let ptr = buf.as_ptr() as usize;
     let len = buf.len();
     let res = unsafe { syscall!(LOG, ptr, len) } as isize;
@@ -30,30 +32,33 @@ pub fn exit(code: ExitCode) {
 }
 
 pub fn sleep(seconds: f64) {
-    unsafe { syscall!(SLEEP, seconds.to_bits()); }
+    unsafe {
+        syscall!(SLEEP, seconds.to_bits());
+    }
 }
 
 pub fn spawn(number: usize, args: &[&str]) -> Result<(), ExitCode> {
     // log({ args.as_ptr() as usize }.to_string().as_bytes());
-    if args.len() > 0 {
-        log(args[0].as_bytes());
+    let ptr_len_pair: Vec<(usize, usize)> = args
+        .iter()
+        .map(|arg| (arg.as_ptr() as usize, arg.len()))
+        .collect();
+    let (args_ptr, args_len, args_cap) = ptr_len_pair.into_raw_parts();
+    let res = unsafe { syscall!(SPAWN, number, args_ptr as usize, args_len, args_cap) };
+    if res == ExitCode::Success as usize {
+        Ok(())
+    } else {
+        Err(ExitCode::from(res))
     }
-    let args_ptr = args.as_ptr() as usize;
-    let args_len = args.len();
-    let res = unsafe {
-        syscall!(SPAWN, number, args_ptr, args_len)
-    };
-    if res == ExitCode::Success as usize { Ok(()) } else { Err(ExitCode::from(res)) }
 }
 
 pub fn alloc(size: usize, align: usize) -> usize {
-    unsafe { syscall!(ALLOC,size,align) }
+    unsafe { syscall!(ALLOC, size, align) }
 }
 
 pub fn free(ptr: usize, size: usize, align: usize) {
     unsafe { syscall!(FREE, ptr, size, align) };
 }
-
 
 /***
  * 发送系统调用

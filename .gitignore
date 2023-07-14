@@ -12,3 +12,4 @@ src/usrbin/target
 src/usrbin/.idea
 src/usrbin/.vscode
 src/usrbin/.vs
+src/usrbin/build

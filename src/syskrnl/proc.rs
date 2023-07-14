@@ -280,13 +280,13 @@ pub fn init_process_addr(addr: u64) {
 
 impl Process {
     /// 创建进程
-    pub fn spawn(bin: &[u8], args_ptr: usize, args_len: usize) -> Result<(), ExitCode> {
+    pub fn spawn(bin: &[u8], args_ptr: usize, args_len: usize, args_cap: usize) -> Result<(), ExitCode> {
         if let Ok(id) = Self::create(bin) {
             let mut proc = {
                 let table = PROCESS_TABLE.read();
                 table[id].clone()
             };
-            proc.exec(args_ptr, args_len);
+            proc.exec(args_ptr, args_len, args_cap);
             Ok(())
         } else {
             Err(ExitCode::ExecError)
@@ -400,28 +400,35 @@ impl Process {
     }
 
     // 切换到用户空间并执行程序
-    fn exec(&mut self, args_ptr: usize, args_len: usize) {
+    fn exec(&mut self, args_ptr: usize, args_len: usize, args_cap: usize) {
         //syskrnl::allocator::alloc_pages(heap_addr, 1).expect("proc heap alloc");
         let page_table = unsafe { page_table() };
         let phys_mem_offset = unsafe { syskrnl::memory::PHYS_MEM_OFFSET };
         let mut mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(phys_mem_offset)) };
 
         // 处理参数
-        let args_ptr = ptr_from_addr(args_ptr as u64) as usize;
-        let args: &[&str] = unsafe {
-            core::slice::from_raw_parts(args_ptr as *const &str, args_len)
+        // 重建指针-长度对
+        let ptr_len_pair: Vec<(usize,usize)> = unsafe {
+            Vec::from_raw_parts(args_ptr as *mut (usize,usize), args_len, args_cap)
         };
-        if args_len > 0 {
-            debugln!("{:?}",args[0]);
-        }
-        let mut addr = unsafe { self.allocator.lock().alloc(core::alloc::Layout::from_size_align(1024, 1).expect("Layout fault 8569")) as u64 };
+        // 重建参数数组
+        let args: Vec<&str> = ptr_len_pair.iter().map(|pair|unsafe{
+            let slice = core::slice::from_raw_parts(pair.0 as *const u8, pair.1);
+            //debugln!("{:?}",slice);
+            core::str::from_utf8(slice).expect("utf8 fail 8547")
+        }).collect();  
+        // 在子进程分配用于存放参数的堆内存
+        let mut addr = unsafe {
+            self.allocator.lock().alloc(core::alloc::Layout::from_size_align(1024, 1).expect("Layout problem 8741"))
+        } as u64;
+        // 将参数复制到这些内存上
         let vec: Vec<&str> = args.iter().map(|arg| {
             let ptr = addr as *mut u8;
             addr += arg.len() as u64;
             unsafe {
                 let s = core::slice::from_raw_parts_mut(ptr, arg.len());
                 s.copy_from_slice(arg.as_bytes());
-                debugln!("{:?}",s);
+                //debugln!("{:?}",s);
                 core::str::from_utf8_unchecked(s)
             }
         }).collect();
@@ -456,7 +463,7 @@ impl Process {
             in(reg) syskrnl::gdt::GDT.1.user_code_selector.0,
             in(reg) self.code_addr + self.entry_point,
             in("rdi") args_ptr,
-            in("rsi") args_len,
+            in("rsi") args.len(),
             );
         }
     }
