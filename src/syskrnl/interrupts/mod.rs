@@ -4,10 +4,13 @@ use lazy_static::lazy_static;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, InterruptStackFrameValue, PageFaultErrorCode};
 use spin::Mutex;
 use core::arch::asm;
+use x86::bits32::eflags::stac;
 
 use crate::{debugln, println, syskrnl};
+use crate::syskrnl::gdt::GDT;
 use crate::syskrnl::io::qemu::qemu_print;
-use crate::syskrnl::proc::Registers;
+use crate::syskrnl::proc::{Registers, SCHEDULER};
+use crate::syskrnl::time::get_ticks;
 
 pub mod pics;
 
@@ -36,12 +39,14 @@ lazy_static! {
             idt.general_protection_fault
                 .set_handler_fn(general_protection_fault_handler)
                 .set_stack_index(syskrnl::gdt::GENERAL_PROTECTION_FAULT_IST_INDEX);
+            // PIT刷新中断
+            idt[interrupt_index(0) as usize]
+                .set_handler_fn(core::mem::transmute(wrapped_clock_handler as *mut fn()));
             // 系统调用接口
             idt[0x80]
                 .set_handler_fn(core::mem::transmute(wrapped_syscall_handler as *mut fn()))
                 .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
         }
-        idt[interrupt_index(0) as usize].set_handler_fn(irq0_handler);
         idt[interrupt_index(1) as usize].set_handler_fn(irq1_handler);
         idt[interrupt_index(2) as usize].set_handler_fn(irq2_handler);
         idt[interrupt_index(3) as usize].set_handler_fn(irq3_handler);
@@ -200,6 +205,35 @@ extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: 
     }
 
     regs.rax = res;
+
+    unsafe { pics::PICS.lock().notify_end_of_interrupt(0x80) };
+}
+
+wrap!(clock_handler => wrapped_clock_handler);
+
+extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+    // 先把时钟发过去
+    debugln!("clock intr");
+    let handlers = IRQ_HANDLERS.lock();
+    handlers[0]();
+
+    if stack_frame.code_segment == GDT.1.user_code_selector.0 as u64 && get_ticks() % 4 == 0 {
+        let next_pid = SCHEDULER.lock().timeup();
+
+        if next_pid != syskrnl::proc::id() {
+            syskrnl::proc::set_stack_frame(**stack_frame);
+            syskrnl::proc::set_registers(*regs);
+
+            syskrnl::proc::set_id(next_pid);
+
+            let sf = syskrnl::proc::stack_frame();
+            unsafe {
+                //stack_frame.as_mut().write(sf);
+                core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
+                core::ptr::write_volatile(regs, syskrnl::proc::registers());
+            }
+        }
+    }
 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(0x80) };
 }

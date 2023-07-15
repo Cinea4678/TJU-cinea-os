@@ -15,14 +15,13 @@ static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::User
 
 fn main(_args: &[&str]) {
     uwriteln!(STDOUT.lock(), "我是Shell（伪），以后操作系统就只有我了。我正在子进程运行。").unwrap();
-    uwriteln!(STDOUT.lock(), "进程切换测试。").unwrap();
-    uwriteln!(STDOUT.lock(), "现在进入子进程。").unwrap();
-    syscall::spawn(0, &[String::from("Magical World!").as_str()]).expect("子进程未成功退出");
-    uwriteln!(
-        STDOUT.lock(),
-        "子进程已经安全退出，CPU成功回到父进程（也在Ring3）"
-    )
-    .unwrap();
+    uwriteln!(STDOUT.lock(), "进程调度测试。（基础）").unwrap();
+    uwriteln!(STDOUT.lock(), "现在启动第一个子进程。").unwrap();
+    syscall::spawn(1, &[String::from("我是子进程A").as_str()]).expect("子进程启动失败");
+    syscall::spawn(1, &[String::from("我是子进程B").as_str()]).expect("子进程启动失败");
+    
+    uwriteln!(STDOUT.lock(), "测试完成").unwrap();
+
     loop {
         syscall::sleep(1.0);
     }

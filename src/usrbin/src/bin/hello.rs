@@ -3,11 +3,9 @@
 
 extern crate alloc;
 
-use core::sync::atomic::Ordering;
-
 use alloc::format;
 use cinea_os::sysapi::syscall;
-use cinea_os::{entry_point, sysapi, STDOUT, TEST_INT};
+use cinea_os::{entry_point, sysapi, STDOUT};
 use ufmt::uwriteln;
 
 entry_point!(main);
@@ -19,9 +17,8 @@ fn main(args: &[&str]) {
     if args.len() > 0 {
         uwriteln!(
             STDOUT.lock(),
-            "Hello, {}, {}",
-            args[0],
-            TEST_INT.fetch_add(1, Ordering::Relaxed)
+            "Hello, {}",
+            args[0]
         )
         .unwrap();
     } else {

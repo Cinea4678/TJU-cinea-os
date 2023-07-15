@@ -12,7 +12,7 @@ extern crate alloc;
 #[macro_use]
 pub mod sysapi;
 
-use core::{convert::Infallible, sync::atomic::AtomicUsize};
+use core::convert::Infallible;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use ufmt::uWrite;
@@ -30,5 +30,4 @@ impl uWrite for MyWriter {
 
 lazy_static! {
     pub static ref STDOUT: Mutex<MyWriter> = Mutex::new(MyWriter);
-    pub static ref TEST_INT: AtomicUsize = AtomicUsize::new(0);
 }

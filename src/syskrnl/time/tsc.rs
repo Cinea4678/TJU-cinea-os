@@ -1,5 +1,6 @@
 use core::sync::atomic::{AtomicU64, Ordering};
 use core::{arch, hint};
+use crate::debugln;
 
 static CLOCKS_PER_NANOSECOND:AtomicU64 = AtomicU64::new(0);
 
@@ -20,9 +21,13 @@ pub fn nanowait(nanoseconds: u64) {
 
 /// 初始化并记录TSC每纳秒的递增数
 pub fn init(){
-    let calibration_time = 250_000; // 0.25 seconds
+    let calibration_time = 250_000;
+    // 0.25 seconds
     let a = rdtsc();
+    debugln!("B");
     super::sleep(calibration_time as f64 / 1e6);
+    debugln!("C");
     let b = rdtsc();
+    debugln!("D");
     CLOCKS_PER_NANOSECOND.store((b - a) / calibration_time, Ordering::Relaxed);
 }

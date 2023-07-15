@@ -3,13 +3,14 @@ use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use crossbeam::atomic::AtomicCell;
 use core::arch::asm;
+use core::ops::Deref;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use crossbeam::atomic::AtomicCell;
 
 use lazy_static::lazy_static;
 use object::{Object, ObjectSegment};
-use spin::RwLock;
+use spin::{Mutex, RwLock};
 use x86_64::registers::control::Cr3;
 use x86_64::structures::idt::InterruptStackFrameValue;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame};
@@ -19,8 +20,8 @@ use crate::{debugln, syskrnl};
 use crate::syskrnl::sysapi::ExitCode;
 use crate::syskrnl::allocator::{alloc_pages, fix_page_fault_in_userspace, Locked};
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
-
-use schedule::ProcessScheduler;
+use crate::syskrnl::schedule::ProcessScheduler;
+use crate::syskrnl::schedule::roundroll::RoundRollScheduler;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
@@ -33,11 +34,11 @@ pub static MAX_PID: AtomicUsize = AtomicUsize::new(1);
 pub static PROC_HEAP_ADDR: AtomicUsize = AtomicUsize::new(0x0002_0000_0000);
 const DEFAULT_HEAP_SIZE: usize = 0x4000; // 默认堆内存大小
 
-lazy_static!{
-    pub static ref SCHEDULER: AtomicCell<dyn ProcessScheduler> = unimplemented!();
-}
-
 lazy_static! {
+    pub static ref SCHEDULER: Mutex<Box<dyn ProcessScheduler + 'static + Send>> = {
+        Mutex::new(Box::new(RoundRollScheduler::new()))
+    };
+
     pub static ref PROCESS_TABLE: RwLock<[Box<Process>; MAX_PROCS]> = {
         let table: [Box<Process>; MAX_PROCS] = [(); MAX_PROCS].map(|_| Box::new(Process::new(0)));
         RwLock::new(table)
@@ -71,7 +72,7 @@ const BIN_MAGIC: [u8; 4] = [0x7F, b'B', b'I', b'N'];
 
 #[derive(Clone, Debug)]
 pub struct Process {
-    id: usize,
+    pub id: usize,
     code_addr: u64,
     stack_addr: u64,
     entry_point: u64,
@@ -446,6 +447,11 @@ impl Process {
             s
         };
         let args_ptr = args.as_ptr() as u64;
+
+        SCHEDULER.lock().add(self.clone(), 0);
+        if self.id != 0 {  // 不需要进入环三
+            return;
+        }
 
         debugln!("LAUNCH");
         set_id(self.id); // 要换咯！
