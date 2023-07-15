@@ -53,7 +53,9 @@ pub fn spawn(number: usize, args: &[&str]) -> Result<(), ExitCode> {
     }
 }
 
-pub fn panic() -> usize { unsafe { syscall!(PANIC) } }
+pub fn panic() -> usize {
+    unsafe { syscall!(PANIC) }
+}
 
 pub fn alloc(size: usize, align: usize) -> usize {
     unsafe { syscall!(ALLOC, size, align) }
@@ -61,6 +63,14 @@ pub fn alloc(size: usize, align: usize) -> usize {
 
 pub fn free(ptr: usize, size: usize, align: usize) {
     unsafe { syscall!(FREE, ptr, size, align) };
+}
+
+pub fn stop_schedule() {
+    unsafe { syscall!(NO_SCHE) };
+}
+
+pub fn restart_schedule() {
+    unsafe { syscall!(CON_SCHE) };
 }
 
 /***

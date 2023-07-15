@@ -3,8 +3,9 @@
 
 extern crate alloc;
 
-use cinea_os::{entry_point, STDOUT, sysapi};
-use ufmt::uwriteln;
+use alloc::string::String;
+use cinea_os::{entry_point, sysapi::{self, syscall::log}, StringWriter};
+use ufmt::uwrite;
 
 entry_point!(main);
 
@@ -12,11 +13,17 @@ entry_point!(main);
 static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::UserProcAllocator;
 
 fn main(args: &[&str]) {
+    let mut strout = StringWriter::new();
     if args.len() > 0 {
+        let mut num = 0;
+        let output = String::from(args[0]);
         loop {
-            uwriteln!(STDOUT.lock(),"{}",args[0]).unwrap();
-            for _ in 0..100000 {  // 土法sleep
+            uwrite!(strout, "{}, 我已经输出了{}次\n", output.as_str(), num).unwrap();
+            log(strout.value().as_bytes());
+            strout.clear();
+            for _ in 0..10000000 { // 土法sleep
             }
+            num += 1;
         }
     }
 }

@@ -56,12 +56,18 @@ pub struct ProcessData {
 #[repr(align(8), C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Registers {
+    pub r15: usize,
+    pub r14: usize,
+    pub r13: usize,
+    pub r12: usize,
     pub r11: usize,
     pub r10: usize,
     pub r9: usize,
     pub r8: usize,
     pub rdi: usize,
     pub rsi: usize,
+    pub rbp: usize,
+    pub rbx: usize,
     pub rdx: usize,
     pub rcx: usize,
     pub rax: usize,
@@ -233,6 +239,18 @@ pub fn set_stack_frame(stack_frame: InterruptStackFrameValue) {
     proc.stack_frame = stack_frame;
 }
 
+pub unsafe fn page_table_frame() -> PhysFrame {
+    let table = PROCESS_TABLE.read();
+    let proc = &table[id()];
+    proc.page_table_frame
+}
+
+pub unsafe fn set_page_table_frame(frame: PhysFrame) {
+    let mut table = PROCESS_TABLE.write();
+    let proc = &mut table[id()];
+    proc.page_table_frame = frame
+}
+
 /// 获取当前进程的堆分配器
 pub fn heap_allocator() -> Arc<Locked<LinkedListAllocator>> {
     let table = PROCESS_TABLE.read();
@@ -260,12 +278,6 @@ pub fn exit() {
     syskrnl::allocator::free_pages(proc.code_addr, MAX_PROC_SIZE);
     MAX_PID.fetch_sub(1, Ordering::SeqCst);
     set_id(proc.parent); // FIXME: 因为目前还不存在调度，所以直接设置为父进程
-}
-
-pub unsafe fn page_table_frame() -> PhysFrame {
-    let table = PROCESS_TABLE.read();
-    let proc = &table[id()];
-    proc.page_table_frame
 }
 
 pub unsafe fn page_table() -> &'static mut PageTable {

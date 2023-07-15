@@ -1,3 +1,4 @@
+use core::sync::atomic::Ordering;
 use crate::{debugln, print, println, syskrnl};
 use crate::syskrnl::proc::Process;
 use crate::syskrnl::sysapi::ExitCode;
@@ -31,6 +32,7 @@ pub fn spawn(number: usize, args_ptr: usize, args_len: usize, args_cap: usize) -
 
 pub fn log(msg: usize, len: usize) -> usize {
     let ptr = syskrnl::proc::ptr_from_addr(msg as u64); // cnmd不看人家源码根本想不到
+    //debugln!("log: ptr:{:p} ori_ptr:{:#x}",ptr,msg);
     let msg = unsafe { core::slice::from_raw_parts(ptr, len) };
     match core::str::from_utf8(msg) {
         Err(_) => {
@@ -46,11 +48,8 @@ pub fn log(msg: usize, len: usize) -> usize {
 
 pub fn alloc(size: usize, align: usize) -> usize {
     debugln!("ALLOC proc_id:{}",syskrnl::proc::id());
-    debugln!("1");
     let allocator = syskrnl::proc::heap_allocator();
-    debugln!("2");
     if allocator.lock().free_space() < size {
-        debugln!("3");
         // 需要生长，计算生长的大小
         let grow_size = size - allocator.lock().free_space();
         // 对齐到页的4KB
@@ -58,9 +57,7 @@ pub fn alloc(size: usize, align: usize) -> usize {
         // 生长
         syskrnl::proc::allocator_grow(grow_size);
     }
-    debugln!("4");
     let ptr = unsafe { allocator.lock().alloc(core::alloc::Layout::from_size_align(size, align).expect("proc mem alloc fail 5478")) };
-    debugln!("5");
     ptr as usize
 }
 
@@ -70,4 +67,12 @@ pub fn free(ptr: usize, size: usize, align: usize) {
         let mut lock = allocator.lock();
         lock.dealloc(ptr as *mut u8, core::alloc::Layout::from_size_align(size, align).expect("proc layout fail 5472"))
     }
+}
+
+pub fn stop_schedule() {
+    syskrnl::interrupts::NO_SCHEDULE.store(true, Ordering::SeqCst);
+}
+
+pub fn restart_schedule() {
+    syskrnl::interrupts::NO_SCHEDULE.store(false, Ordering::SeqCst);
 }

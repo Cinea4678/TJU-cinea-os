@@ -42,6 +42,14 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
             PANIC => {
                 panic!("User space program asked to panic. ACCR.");
             }
+            NO_SCHE => {
+                service::stop_schedule();
+                0
+            }
+            CON_SCHE => {
+                service::restart_schedule();
+                0
+            }
             _ => panic!("unknown syscall id: {}", syscall_id),
         }
     })
