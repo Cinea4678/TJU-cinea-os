@@ -6,8 +6,8 @@ use alloc::vec::Vec;
 use core::arch::asm;
 use core::ops::Deref;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use crossbeam::atomic::AtomicCell;
 
+use crossbeam::atomic::AtomicCell;
 use lazy_static::lazy_static;
 use object::{Object, ObjectSegment};
 use spin::{Mutex, RwLock};
@@ -17,11 +17,11 @@ use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, Phy
 use x86_64::VirtAddr;
 
 use crate::{debugln, syskrnl};
-use crate::syskrnl::sysapi::ExitCode;
 use crate::syskrnl::allocator::{alloc_pages, fix_page_fault_in_userspace, Locked};
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
 use crate::syskrnl::schedule::ProcessScheduler;
 use crate::syskrnl::schedule::roundroll::RoundRollScheduler;
+use crate::syskrnl::sysapi::ExitCode;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
@@ -262,7 +262,7 @@ pub fn exit() {
     set_id(proc.parent); // FIXME: 因为目前还不存在调度，所以直接设置为父进程
 }
 
-unsafe fn page_table_frame() -> PhysFrame {
+pub unsafe fn page_table_frame() -> PhysFrame {
     let table = PROCESS_TABLE.read();
     let proc = &table[id()];
     proc.page_table_frame
@@ -413,15 +413,15 @@ impl Process {
 
         // 处理参数
         // 重建指针-长度对
-        let ptr_len_pair: Vec<(usize,usize)> = unsafe {
-            Vec::from_raw_parts(args_ptr as *mut (usize,usize), args_len, args_cap)
+        let ptr_len_pair: Vec<(usize, usize)> = unsafe {
+            Vec::from_raw_parts(args_ptr as *mut (usize, usize), args_len, args_cap)
         };
         // 重建参数数组
-        let args: Vec<&str> = ptr_len_pair.iter().map(|pair|unsafe{
+        let args: Vec<&str> = ptr_len_pair.iter().map(|pair| unsafe {
             let slice = core::slice::from_raw_parts(pair.0 as *const u8, pair.1);
             //debugln!("{:?}",slice);
             core::str::from_utf8(slice).expect("utf8 fail 8547")
-        }).collect();  
+        }).collect();
         // 在子进程分配用于存放参数的堆内存
         let mut addr = unsafe {
             self.allocator.lock().alloc(core::alloc::Layout::from_size_align(1024, 1).expect("Layout problem 8741"))
@@ -449,9 +449,9 @@ impl Process {
         let args_ptr = args.as_ptr() as u64;
 
         SCHEDULER.lock().add(self.clone(), 0);
-        if self.id != 0 {  // 不需要进入环三
-            return;
-        }
+        // if self.id != 1 {  // 不需要进入环三
+        //     return;
+        // }
 
         debugln!("LAUNCH");
         set_id(self.id); // 要换咯！

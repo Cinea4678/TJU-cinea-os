@@ -1,9 +1,10 @@
+use core::arch::asm;
+
 use alloc::vec::Vec;
 
 use crate::sysapi::call::*;
 use crate::sysapi::proc::ExitCode;
 use crate::syscall;
-use core::arch::asm;
 
 pub fn log(buf: &[u8]) -> Option<usize> {
     let ptr = buf.as_ptr() as usize;
@@ -51,6 +52,8 @@ pub fn spawn(number: usize, args: &[&str]) -> Result<(), ExitCode> {
         Err(ExitCode::from(res))
     }
 }
+
+pub fn panic() -> usize { unsafe { syscall!(PANIC) } }
 
 pub fn alloc(size: usize, align: usize) -> usize {
     unsafe { syscall!(ALLOC, size, align) }

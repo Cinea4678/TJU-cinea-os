@@ -7,8 +7,12 @@ pub mod call;
 macro_rules! entry_point {
     ($path:path) => {
         #[panic_handler]
-        fn panic(_info: &core::panic::PanicInfo) -> ! {
-            $crate::sysapi::syscall::log(b"An exception occured!\n");
+        fn panic(info: &core::panic::PanicInfo) -> ! {
+            // use alloc::format;
+            // $crate::sysapi::syscall::log(format!("An exception occurred!\n{}", info).as_bytes());
+
+            $crate::sysapi::syscall::log(b"An exception in UserSpace occurred!\n");
+            $crate::sysapi::syscall::panic();
             loop {}
         }
 

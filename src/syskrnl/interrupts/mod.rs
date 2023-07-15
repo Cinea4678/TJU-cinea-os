@@ -1,10 +1,10 @@
 use alloc::format;
+use core::arch::asm;
 
 use lazy_static::lazy_static;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, InterruptStackFrameValue, PageFaultErrorCode};
 use spin::Mutex;
-use core::arch::asm;
-use x86::bits32::eflags::stac;
+use x86_64::registers::control::Cr3;
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, InterruptStackFrameValue, PageFaultErrorCode};
 
 use crate::{debugln, println, syskrnl};
 use crate::syskrnl::gdt::GDT;
@@ -213,27 +213,34 @@ wrap!(clock_handler => wrapped_clock_handler);
 
 extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
     // 先把时钟发过去
-    debugln!("clock intr");
     let handlers = IRQ_HANDLERS.lock();
     handlers[0]();
 
     if stack_frame.code_segment == GDT.1.user_code_selector.0 as u64 && get_ticks() % 4 == 0 {
         let next_pid = SCHEDULER.lock().timeup();
+        debugln!("Schedule; next_pid = {}; now_pid = {}", next_pid, syskrnl::proc::id());
 
         if next_pid != syskrnl::proc::id() {
+            debugln!("A");
             syskrnl::proc::set_stack_frame(**stack_frame);
             syskrnl::proc::set_registers(*regs);
 
+            debugln!("B");
             syskrnl::proc::set_id(next_pid);
 
+            debugln!("C");
+            let (_, flags) = Cr3::read();
             let sf = syskrnl::proc::stack_frame();
             unsafe {
+                debugln!("D");
                 //stack_frame.as_mut().write(sf);
+                Cr3::write(syskrnl::proc::page_table_frame(), flags);
                 core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
                 core::ptr::write_volatile(regs, syskrnl::proc::registers());
             }
+            debugln!("E");
         }
     }
 
-    unsafe { pics::PICS.lock().notify_end_of_interrupt(0x80) };
+    unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index(0) as u8) };
 }

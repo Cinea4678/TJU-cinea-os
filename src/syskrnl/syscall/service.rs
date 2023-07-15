@@ -1,6 +1,6 @@
-use crate::{debugln, println, syskrnl, print};
-use crate::syskrnl::sysapi::ExitCode;
+use crate::{debugln, print, println, syskrnl};
 use crate::syskrnl::proc::Process;
+use crate::syskrnl::sysapi::ExitCode;
 
 pub fn exit(code: ExitCode) -> ExitCode {
     syskrnl::proc::exit();
@@ -14,8 +14,9 @@ pub fn sleep(seconds: f64) {
 /// FIXME 在未来，要改正。现在是测试用途
 pub fn spawn(number: usize, args_ptr: usize, args_len: usize, args_cap: usize) -> ExitCode {
     debugln!("{:#x},{}",args_ptr,args_len);
-    let subprocess = match number {
+    let subprocess: &[u8] = match number {
         0x00 => include_bytes!("../../../dsk/bin/hello"),
+        0x01 => include_bytes!("../../../dsk/bin/infprint"),
         _ => {
             println!("spawn: invalid number");
             return ExitCode::OpenError;
@@ -44,8 +45,12 @@ pub fn log(msg: usize, len: usize) -> usize {
 }
 
 pub fn alloc(size: usize, align: usize) -> usize {
+    debugln!("ALLOC proc_id:{}",syskrnl::proc::id());
+    debugln!("1");
     let allocator = syskrnl::proc::heap_allocator();
+    debugln!("2");
     if allocator.lock().free_space() < size {
+        debugln!("3");
         // 需要生长，计算生长的大小
         let grow_size = size - allocator.lock().free_space();
         // 对齐到页的4KB
@@ -53,7 +58,9 @@ pub fn alloc(size: usize, align: usize) -> usize {
         // 生长
         syskrnl::proc::allocator_grow(grow_size);
     }
+    debugln!("4");
     let ptr = unsafe { allocator.lock().alloc(core::alloc::Layout::from_size_align(size, align).expect("proc mem alloc fail 5478")) };
+    debugln!("5");
     ptr as usize
 }
 

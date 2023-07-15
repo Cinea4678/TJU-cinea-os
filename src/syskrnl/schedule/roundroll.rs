@@ -1,6 +1,7 @@
 use alloc::collections::BTreeMap;
 use alloc::vec;
 use alloc::vec::Vec;
+
 use crate::syskrnl::proc::Process;
 use crate::syskrnl::schedule::ProcessScheduler;
 
@@ -61,6 +62,7 @@ impl RoundRollScheduler {
             cursor: 0,
         };
         s.map.insert(0, 0);  // 插入0-0映射
+        s.table[0].skip = true;
         s
     }
 
@@ -129,7 +131,8 @@ impl RoundRollScheduler {
 impl ProcessScheduler for RoundRollScheduler {
     fn add(&mut self, process: Process, _priority: u32) -> usize {
         self.add(process.id);
-        self.now()   // 不允许插队，以防出现问题
+        self.cursor = *self.map.get(&process.id).unwrap();
+        self.now()
     }
 
     fn terminate(&mut self, process: Process) -> usize {

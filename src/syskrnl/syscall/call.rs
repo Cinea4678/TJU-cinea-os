@@ -15,3 +15,4 @@ pub const LOG:      usize = 0xC;
 pub const ALLOC:    usize = 0xD;
 /// 归还堆内存 (3): a0-ptr a1-size a2-align
 pub const FREE:     usize = 0xE;
+pub const PANIC:    usize = 0xF;
