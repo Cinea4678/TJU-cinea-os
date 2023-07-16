@@ -165,7 +165,6 @@ pub unsafe fn create_page_table(frame: PhysFrame) -> &'static mut PageTable {
 /// 帧分配器，返回BootLoader的内存映射中的可用帧
 pub struct BootInfoFrameAllocator {
     memory_map: &'static MemoryMap,
-    usable_frames: Vec<PhysFrame<Size4KiB>>,
 }
 
 impl BootInfoFrameAllocator {
@@ -173,10 +172,8 @@ impl BootInfoFrameAllocator {
     ///
     /// 函数不安全，因为调用者必须保证memory_map的正确性
     pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
-        let usable_frames = Self::usable_frames(memory_map).collect();
         BootInfoFrameAllocator {
             memory_map,
-            usable_frames
         }
     }
 
@@ -199,9 +196,9 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
         let next = ALLOCATED_FRAMES.fetch_add(1, Ordering::SeqCst);
         //debug!("Allocate frame {} / {}", next, self.usable_frames().count());
 
-        // // FIXME: creating an iterator for each allocation is very slow if
-        // // the heap is larger than a few megabytes.
-        // self.usable_frames().nth(next)
+        // FIXME: creating an iterator for each allocation is very slow if
+        // the heap is larger than a few megabytes.
+        self.usable_frames().nth(next)
     }
 }
 
