@@ -1,6 +1,6 @@
 use alloc::format;
 use crate::syskrnl::graphic::{GD, GL, WIDTH};
-use crate::syskrnl::time::get_raw_time;
+use crate::syskrnl::time::raw_time;
 use crate::rgb888;
 use crate::syskrnl::io;
 
@@ -19,7 +19,7 @@ pub fn update_status_bar_time(show_colon: bool) {
         return;
     }
 
-    let time = get_raw_time();
+    let time = raw_time();
 
     let time_str = if show_colon {
         format!("{:02}:{:02}:{:02}", time.hour, time.minute, time.second)

@@ -40,7 +40,7 @@ fn days_before_month(year: u32, month: u8) -> u64 {
 }
 
 pub fn realtime() -> f64 {
-    let raw_time = time::get_raw_time();
+    let raw_time = time::raw_time();
 
     // 先算到2003-1-1 GMT的秒数
     let _timestamp = 86400 * days_before_year(raw_time.year)
@@ -51,7 +51,7 @@ pub fn realtime() -> f64 {
         + raw_time.second as u64
         + 10540800 + 68400;
 
-    let _fract = time::get_time_between_ticks() * (time::get_ticks() - time::get_last_rtc_update()) as f64;
+    let _fract = time::time_between_ticks() * (time::ticks() - time::last_rtc_update()) as f64;
     unimplemented!()
 }
 

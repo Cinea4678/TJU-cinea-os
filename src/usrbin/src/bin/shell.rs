@@ -5,7 +5,7 @@ extern crate alloc;
 
 use alloc::string::String;
 
-use cinea_os::{entry_point, sysapi, StdWriter};
+use cinea_os::{entry_point, StdWriter, sysapi};
 use cinea_os::sysapi::syscall;
 use ufmt::uwriteln;
 
@@ -20,8 +20,8 @@ fn main(args: &[&str]) {
     uwriteln!(stdout, "进程调度测试。（基础）").unwrap();
     uwriteln!(stdout, "现在启动第一个子进程。").unwrap();
     uwriteln!(stdout, "args_ptr: {:#x}",args.as_ptr() as usize).unwrap();
-    let _ = syscall::spawn(1, &[String::from("我是进程A").as_str()]);
-    let _ = syscall::spawn(1, &[String::from("我是进程B").as_str()]);
+    let _ = syscall::spawn(1, &[String::from("我是进程").as_str()]);
+    let _ = syscall::spawn(1, &[String::from("我是另外一个进程").as_str()]);
 
     loop {}
 }

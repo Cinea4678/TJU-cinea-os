@@ -11,7 +11,7 @@ use crate::{debugln, println, syskrnl};
 use crate::syskrnl::gdt::GDT;
 use crate::syskrnl::io::qemu::qemu_print;
 use crate::syskrnl::proc::{Registers, SCHEDULER};
-use crate::syskrnl::time::get_ticks;
+use crate::syskrnl::time::ticks;
 
 pub mod pics;
 
@@ -232,10 +232,10 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
     let handlers = IRQ_HANDLERS.lock();
     handlers[0]();
 
-    if stack_frame.code_segment == GDT.1.user_code_selector.0 as u64 && get_ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 10 {
+    if stack_frame.code_segment == GDT.1.user_code_selector.0 as u64 && ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 10 {
         let mut schedule = || {
             if NO_SCHEDULE.load(Ordering::SeqCst) {
-                if get_ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 1000 {
+                if ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 1000 {
                     // 强行恢复调度
                     NO_SCHEDULE.store(false, Ordering::SeqCst);
                 } else {
@@ -263,7 +263,7 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
                 }
             }
 
-            LAST_SCHEDULE.store(get_ticks(), Ordering::SeqCst);
+            LAST_SCHEDULE.store(ticks(), Ordering::SeqCst);
         };
 
         schedule();

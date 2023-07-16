@@ -31,7 +31,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("\n\n\t\t万里之行，始于足下\n\t\t道阻且长，行则将至\n");
 
-    println!("系统uptime：{:.5} s", syskrnl::time::get_uptime());
+    println!("系统uptime：{:.5} s", syskrnl::time::uptime());
 
     // let mut executor = Executor::new();
     // //executor.spawn(Task::new(example_task()));

@@ -1,10 +1,11 @@
-use core::sync::atomic::{AtomicU64, Ordering};
 use core::{arch, hint};
+use core::sync::atomic::{AtomicU64, Ordering};
+
 use crate::debugln;
 
-static CLOCKS_PER_NANOSECOND:AtomicU64 = AtomicU64::new(0);
+pub static CLOCKS_PER_NANOSECOND: AtomicU64 = AtomicU64::new(0);
 
-fn rdtsc() -> u64{
+pub fn rdtsc() -> u64 {
     unsafe {
         arch::x86_64::_mm_lfence();  // 确保读取到的是最新的值
         arch::x86_64::_rdtsc()

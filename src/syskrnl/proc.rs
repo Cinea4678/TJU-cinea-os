@@ -22,6 +22,7 @@ use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
 use crate::syskrnl::schedule::ProcessScheduler;
 use crate::syskrnl::schedule::roundroll::RoundRollScheduler;
 use crate::syskrnl::sysapi::ExitCode;
+use crate::syskrnl::time::{tsc, uptime};
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
@@ -338,6 +339,7 @@ impl Process {
         let code_ptr = kernel_code_addr as *mut u8;
         let _code_size = bin.len();
         if bin[0..4] == ELF_MAGIC { // 进程代码是ELF格式的
+            let t1 = tsc::rdtsc();
             if let Ok(obj) = object::File::parse(bin) {
 
                 // 先在用户页表上分配
@@ -348,6 +350,7 @@ impl Process {
 
                 entry_point = obj.entry();
                 debugln!("entry_point:{:#x}",entry_point);
+                debugln!("Proc::Create: {}s",(((tsc::rdtsc()-t1) as f64)/tsc::CLOCKS_PER_NANOSECOND.load(Ordering::Relaxed) as f64)*1e-6);
                 for segment in obj.segments() {
                     let addr = segment.address() as usize;
                     if let Ok(data) = segment.data() {

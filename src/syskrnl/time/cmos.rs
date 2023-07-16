@@ -180,7 +180,7 @@ pub fn rtc_interrupt_handler() {
         syskrnl::clock::half_sec_handler();
     } else if status & Interrupt::Update as u8 > 0 {
         // 更新中断
-        LAST_RTC_UPDATE.store(super::get_ticks(), Ordering::Relaxed);
+        LAST_RTC_UPDATE.store(super::ticks(), Ordering::Relaxed);
     }
     notify_end_of_interrupt();
 }
