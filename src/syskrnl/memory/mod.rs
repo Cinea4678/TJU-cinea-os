@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::vec::Vec;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
@@ -196,12 +197,59 @@ unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
         let next = ALLOCATED_FRAMES.fetch_add(1, Ordering::SeqCst);
         //debug!("Allocate frame {} / {}", next, self.usable_frames().count());
 
-        // FIXME: creating an iterator for each allocation is very slow if
-        // the heap is larger than a few megabytes.
         self.usable_frames().nth(next)
     }
 }
 
 pub fn frame_allocator() -> BootInfoFrameAllocator {
     unsafe { BootInfoFrameAllocator::init(MEMORY_MAP.unwrap()) }
+}
+
+
+/// 帧分配器，返回BootLoader的内存映射中的可用帧
+pub struct HeapedBootInfoFrameAllocator {
+    memory_map: &'static MemoryMap,
+    cached_frames: Vec<PhysFrame>,
+}
+
+impl HeapedBootInfoFrameAllocator {
+    /// 使用传递的内存映射创建一个帧分配器
+    ///
+    /// 函数不安全，因为调用者必须保证memory_map的正确性
+    pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
+        let mut alloc = HeapedBootInfoFrameAllocator {
+            memory_map,
+            cached_frames: vec![],
+        };
+
+        alloc.cached_frames = alloc.usable_frames().collect();
+
+        alloc
+    }
+
+    /// 返回一个可用帧的迭代器
+    fn usable_frames(&self) -> impl Iterator<Item=PhysFrame> {
+        // 获取内存中的可用区域
+        let regions = self.memory_map.iter();
+        let usable_regions = regions.filter(|r| r.region_type == MemoryRegionType::Usable);
+        // 将这些区域映射到他们的地址范围内
+        let addr_ranges = usable_regions.map(|r| r.range.start_addr()..r.range.end_addr());
+        // 转换为帧起始位置的迭代器
+        let frame_addresses = addr_ranges.flat_map(|r| r.step_by(4096));
+        // 通过帧起始位置创建PhysFrame类
+        frame_addresses.map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
+    }
+}
+
+unsafe impl FrameAllocator<Size4KiB> for HeapedBootInfoFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame<Size4KiB>> {
+        let next = ALLOCATED_FRAMES.fetch_add(1, Ordering::SeqCst);
+        //debug!("Allocate frame {} / {}", next, self.usable_frames().count());
+
+        self.cached_frames.get(next).cloned()
+    }
+}
+
+pub fn heaped_frame_allocator() -> HeapedBootInfoFrameAllocator {
+    unsafe { HeapedBootInfoFrameAllocator::init(MEMORY_MAP.unwrap()) }
 }

@@ -102,7 +102,7 @@ pub fn free_pages(addr: u64, size: usize) {
 }
 
 pub fn alloc_pages(mapper: &mut OffsetPageTable, addr: u64, size: usize) -> Result<(), ()> {
-    let mut frame_allocator = syskrnl::memory::frame_allocator();
+    let mut frame_allocator = syskrnl::memory::heaped_frame_allocator();
     let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE | PageTableFlags::USER_ACCESSIBLE;
     let pages = {
         let start_page = Page::containing_address(VirtAddr::new(addr));
@@ -158,7 +158,7 @@ pub fn alloc_pages_to_known_phys(mapper: &mut OffsetPageTable, addr: u64, size: 
 
 /// FIXME: 权宜之计，有更好的方法第一时间换掉
 pub unsafe fn fix_page_fault_in_userspace(mapper: &mut OffsetPageTable) {
-    let mut frame_allocator = syskrnl::memory::frame_allocator();
+    let mut frame_allocator = syskrnl::memory::heaped_frame_allocator();
     let flags = PageTableFlags::PRESENT | PageTableFlags::USER_ACCESSIBLE;
 
     let pages = {

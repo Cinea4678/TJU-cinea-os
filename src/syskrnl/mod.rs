@@ -1,3 +1,6 @@
+#[macro_use]
+pub mod io;
+
 pub mod interrupts;
 pub mod vga_buffer;
 pub mod gdt;
@@ -12,6 +15,4 @@ pub mod syscall;
 pub mod proc;
 pub mod schedule;
 pub mod sysapi;
-
-#[macro_use]
-pub mod io;
+pub mod waker;

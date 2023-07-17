@@ -312,7 +312,7 @@ impl Process {
     }
 
     fn create(bin: &[u8]) -> Result<usize, ()> {
-        let page_table_frame = syskrnl::memory::frame_allocator().allocate_frame().expect("frame alloc failed");
+        let page_table_frame = syskrnl::memory::heaped_frame_allocator().allocate_frame().expect("frame alloc failed");
         let page_table = unsafe { syskrnl::memory::create_page_table(page_table_frame) };
         let kernel_page_table = unsafe { syskrnl::memory::active_page_table() };
 
