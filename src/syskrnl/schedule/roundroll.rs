@@ -62,7 +62,6 @@ impl RoundRollScheduler {
             cursor: 0,
         };
         s.map.insert(0, 0);  // 插入0-0映射
-        s.table[0].skip = true;
         s
     }
 

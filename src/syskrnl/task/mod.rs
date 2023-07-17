@@ -1,6 +1,7 @@
 pub mod simple_executor;
 pub mod keyboard;
 pub mod executor;
+pub mod mouse;
 
 use alloc::boxed::Box;
 use core::future::Future;

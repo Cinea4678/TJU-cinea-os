@@ -4,8 +4,8 @@
 extern crate alloc;
 
 use alloc::format;
-use cinea_os::sysapi::syscall;
-use cinea_os::{entry_point, sysapi, StdWriter};
+use cinea_os_userspace::sysapi::syscall;
+use cinea_os_userspace::{entry_point, sysapi, std::StdWriter};
 use ufmt::uwriteln;
 
 entry_point!(main);

@@ -35,6 +35,7 @@ pub fn init(bootinfo: &'static BootInfo) {
     debugln!("Start timer");
     syskrnl::time::init();
     syskrnl::task::keyboard::init();
+    syskrnl::task::mouse::init();
 }
 
 pub fn hlt_loop() -> ! {

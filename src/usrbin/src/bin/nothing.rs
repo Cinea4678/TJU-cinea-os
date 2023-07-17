@@ -3,7 +3,7 @@
 
 extern crate alloc;
 
-use cinea_os::{entry_point, sysapi};
+use cinea_os_userspace::{entry_point, sysapi};
 
 entry_point!(main);
 

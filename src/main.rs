@@ -3,16 +3,22 @@
 #![no_std] // 不链接Rust标准库
 #![no_main] // 禁用所有Rust层级的入口点
 #![feature(abi_x86_interrupt)]
+#![feature(asm_const)]
 
 extern crate alloc;
 
 use alloc::vec;
 use alloc::vec::Vec;
+use core::arch::asm;
 use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
+use x86::int;
 
 use cinea_os::{println, syskrnl};
+use cinea_os::syskrnl::task::executor::Executor;
+use cinea_os::syskrnl::task::keyboard::print_keypresses;
+use cinea_os::syskrnl::task::Task;
 
 entry_point!(kernel_main);
 
@@ -23,7 +29,7 @@ fn panic(_info: &PanicInfo) -> ! {
     cinea_os::hlt_loop();
 }
 
-/// 内核主程序
+/// 内核主程序（0号进程）
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("Launching Cinea's OS...\n");
 
@@ -33,16 +39,22 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("系统uptime：{:.5} s", syskrnl::time::uptime());
 
-    // let mut executor = Executor::new();
-    // //executor.spawn(Task::new(example_task()));
-    // executor.spawn(Task::new(print_keypresses()));
-    // executor.run();
-
     println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
+
     let subp = include_bytes!("../dsk/bin/shell");
     let args: Vec<&str> = vec![];
-    syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0, 0).unwrap();
-    cinea_os::hlt_loop();
+    let mut flag = 0;
+    loop {
+        unsafe { int!(0x81) };
+        if flag > 0 { break; } else { flag = 1; } // 确保不会无尽循环启动shell
+        syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0, 0).unwrap();
+    }
+
+    // 0号进程继续它的工作：Handle键盘输入。
+    let mut executor = Executor::new();
+    //executor.spawn(Task::new(example_task()));
+    executor.spawn(Task::new(print_keypresses()));
+    executor.run();
 }
 
 // async fn async_number() -> u32 {

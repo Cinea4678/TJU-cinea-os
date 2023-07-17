@@ -29,3 +29,6 @@ x86_64 = "0.14.10"
 
 [package.metadata.bootimage]
 run-args = ["-serial", "stdio", "-m", "1G"]
+
+[profile.release]
+debug = 0

@@ -339,7 +339,6 @@ impl Process {
         let code_ptr = kernel_code_addr as *mut u8;
         let _code_size = bin.len();
         if bin[0..4] == ELF_MAGIC { // 进程代码是ELF格式的
-            let t1 = tsc::rdtsc();
             if let Ok(obj) = object::File::parse(bin) {
 
                 // 先在用户页表上分配
@@ -350,11 +349,10 @@ impl Process {
 
                 entry_point = obj.entry();
                 debugln!("entry_point:{:#x}",entry_point);
-                debugln!("Proc::Create: {}s",(((tsc::rdtsc()-t1) as f64)/tsc::CLOCKS_PER_NANOSECOND.load(Ordering::Relaxed) as f64)*1e-6);
                 for segment in obj.segments() {
                     let addr = segment.address() as usize;
                     if let Ok(data) = segment.data() {
-                        debugln!("before flight? codeaddr,addr,datalen is {:#x},{:#x},{}", kernel_code_addr, addr, data.len());
+                        debugln!("before flight? codeaddr,addr,datalen is {:#x},{:#x},{}", code_ptr as usize + addr, addr, data.len());
                         for (i, b) in data.iter().enumerate() {
                             unsafe {
                                 //debugln!("code:       {:#x}", code_ptr.add(addr + i) as usize);
@@ -467,6 +465,7 @@ impl Process {
         // if self.id != 1 {  // 不需要进入环三
         //     return;
         // }
+        syskrnl::interrupts::SCHEDULE.store(true, Ordering::SeqCst);
 
         debugln!("LAUNCH");
         set_id(self.id); // 要换咯！

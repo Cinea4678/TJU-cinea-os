@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use alloc::string::String;
-use cinea_os::{entry_point, sysapi::{self, syscall::log}, StringWriter};
+use cinea_os_userspace::{entry_point, sysapi::{self, syscall::log}, std::StringWriter};
 use ufmt::uwrite;
 
 entry_point!(main);

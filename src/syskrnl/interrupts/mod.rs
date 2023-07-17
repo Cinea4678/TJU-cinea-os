@@ -1,9 +1,11 @@
 use alloc::format;
 use core::arch::asm;
+use core::ops::Add;
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
+use x86::int;
 use x86_64::registers::control::Cr3;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, InterruptStackFrameValue, PageFaultErrorCode};
 
@@ -46,6 +48,10 @@ lazy_static! {
             // 系统调用接口
             idt[0x80]
                 .set_handler_fn(core::mem::transmute(wrapped_syscall_handler as *mut fn()))
+                .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
+            // 特殊调用接口：保存进程状态
+            idt[0x81]
+                .set_handler_fn(core::mem::transmute(wrapped_save_context as *mut fn()))
                 .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
         }
         idt[interrupt_index(1) as usize].set_handler_fn(irq1_handler);
@@ -222,6 +228,7 @@ extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(0x80) };
 }
 
+pub static SCHEDULE: AtomicBool = AtomicBool::new(false);
 static LAST_SCHEDULE: AtomicUsize = AtomicUsize::new(0);
 pub static NO_SCHEDULE: AtomicBool = AtomicBool::new(false);
 
@@ -232,7 +239,7 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
     let handlers = IRQ_HANDLERS.lock();
     handlers[0]();
 
-    if stack_frame.code_segment == GDT.1.user_code_selector.0 as u64 && ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 10 {
+    if SCHEDULE.load(Ordering::SeqCst) && ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 10 {
         let mut schedule = || {
             if NO_SCHEDULE.load(Ordering::SeqCst) {
                 if ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 1000 {
@@ -270,4 +277,15 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
     }
 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index(0) as u8) };
+}
+
+wrap!(save_context => wrapped_save_context);
+
+extern "sysv64" fn save_context(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+    syskrnl::proc::set_stack_frame(**stack_frame);
+    syskrnl::proc::set_registers(*regs);
+    let (ptf, _) = Cr3::read();
+    unsafe { syskrnl::proc::set_page_table_frame(ptf); };
+
+    unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index(0x81) as u8) };
 }
