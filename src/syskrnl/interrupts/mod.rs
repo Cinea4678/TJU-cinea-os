@@ -5,12 +5,11 @@ use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
-use x86::int;
 use x86_64::registers::control::Cr3;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, InterruptStackFrameValue, PageFaultErrorCode};
 
 use crate::{debugln, println, syskrnl};
-use crate::syskrnl::gdt::GDT;
+use crate::syskrnl::gui::panic;
 use crate::syskrnl::io::qemu::qemu_print;
 use crate::syskrnl::proc::{Registers, SCHEDULER};
 use crate::syskrnl::time::ticks;
@@ -125,27 +124,27 @@ extern "x86-interrupt" fn double_fault_handler(_stack_frame: InterruptStackFrame
 
 /// 一般保护异常处理函数
 extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) {
-    println!("EXCEPTION: GENERAL PROTECTION FAULT");
-    println!("Stack Frame: {:#?}", stack_frame);
-    println!("Error: {:?}", error_code);
     debugln!("EXCEPTION: GENERAL PROTECTION FAULT\nStack Frame: {:#?}\nError: {:?}\n", stack_frame, error_code);
-    panic!();
+
+    let panic_desc = format!("Stack Frame: {:#?}\nError: {:?}\n", stack_frame, error_code);
+    let panic_info = panic::PanicInfo::new("一般保护异常 General Protection", panic_desc.as_str());
+
+    panic::handle_panic(&panic_info);
 }
 
 /// 页错异常处理函数
-extern "x86-interrupt" fn page_fault_handler(_stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
+extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
     use crate::hlt_loop;
     use x86_64::registers::control::Cr2;
 
-    println!("EXCEPTION: PAGE FAULT");
-    println!("Accessed Address: {:?}", Cr2::read());
-    println!("{:#?}", _stack_frame);
-
     qemu_print(format!("EXCEPTION: PAGE FAULT\n").as_str());
     qemu_print(format!("Accessed Address: {:?}\n", Cr2::read()).as_str());
-    qemu_print(format!("{:#?}\n", _stack_frame).as_str());
+    qemu_print(format!("{:#?}\n", stack_frame).as_str());
 
-    hlt_loop();
+    let panic_desc = format!("Accessed Address: {:?}\n{:#?}\n", Cr2::read(), stack_frame);
+    let panic_info = panic::PanicInfo::new("页错异常 Page Fault", panic_desc.as_str());
+
+    panic::handle_panic(&panic_info);
 }
 
 // 裸函数包装器，用于把暂存寄存器的值保存到堆栈
@@ -251,19 +250,18 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
             }
 
             let next_pid = SCHEDULER.lock().timeup();
-            debugln!("Schedule: next_pid = {}; now_pid = {}", next_pid, syskrnl::proc::id());
+            // debugln!("Schedule: next_pid = {}; now_pid = {}", next_pid, syskrnl::proc::id());
 
             if next_pid != syskrnl::proc::id() {
                 syskrnl::proc::set_stack_frame(**stack_frame);
                 syskrnl::proc::set_registers(*regs);
-                let (ptf, flags) = Cr3::read(); // 保存页表？但是有用吗
-                unsafe { syskrnl::proc::set_page_table_frame(ptf); };
 
                 syskrnl::proc::set_id(next_pid);
 
                 let sf = syskrnl::proc::stack_frame();
                 unsafe {
                     //stack_frame.as_mut().write(sf);
+                    let (_, flags) = Cr3::read();
                     Cr3::write(syskrnl::proc::page_table_frame(), flags);
                     core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
                     core::ptr::write_volatile(regs, syskrnl::proc::registers());
@@ -284,8 +282,6 @@ wrap!(save_context => wrapped_save_context);
 extern "sysv64" fn save_context(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
     syskrnl::proc::set_stack_frame(**stack_frame);
     syskrnl::proc::set_registers(*regs);
-    let (ptf, _) = Cr3::read();
-    unsafe { syskrnl::proc::set_page_table_frame(ptf); };
 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index(0x81) as u8) };
 }

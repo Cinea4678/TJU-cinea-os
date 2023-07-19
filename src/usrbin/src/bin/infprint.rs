@@ -4,13 +4,16 @@
 extern crate alloc;
 
 use alloc::string::String;
-use cinea_os_userspace::{entry_point, sysapi::{self, syscall::log}, std::StringWriter};
+
 use ufmt::uwrite;
+
+use cinea_os_sysapi::{allocator, entry_point, syscall::log};
+use cinea_os_userspace::std::StringWriter;
 
 entry_point!(main);
 
 #[global_allocator]
-static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::UserProcAllocator;
+static ALLOCATOR: allocator::UserProcAllocator = allocator::UserProcAllocator;
 
 fn main(args: &[&str]) {
     let mut strout = StringWriter::new();

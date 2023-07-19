@@ -1,0 +1,88 @@
+#![no_std] // 不链接Rust标准库
+#![no_main]
+#![feature(abi_x86_interrupt)]
+#![feature(asm_const)]
+#![feature(const_mut_refs)]
+#![feature(atomic_bool_fetch_not)]
+#![feature(naked_functions)]
+#![feature(vec_into_raw_parts)]
+
+extern crate alloc;
+
+pub mod syscall;
+pub mod proc;
+pub mod allocator;
+pub mod call;
+
+/// 进程退出代码
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ExitCode {
+    Success = 0,
+    Failure = 1,
+    UsageError = 64,
+    DataError = 65,
+    OpenError = 128,
+    ReadError = 129,
+    ExecError = 130,
+    PageFaultError = 200,
+    ShellExit = 255,
+}
+
+impl From<usize> for ExitCode {
+    fn from(code: usize) -> Self {
+        match code {
+            0 => ExitCode::Success,
+            64 => ExitCode::UsageError,
+            65 => ExitCode::DataError,
+            128 => ExitCode::OpenError,
+            129 => ExitCode::ReadError,
+            130 => ExitCode::ExecError,
+            200 => ExitCode::PageFaultError,
+            255 => ExitCode::ShellExit,
+            _ => ExitCode::Failure,
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! entry_point {
+    ($path:path) => {
+        #[panic_handler]
+        fn panic(info: &core::panic::PanicInfo) -> ! {
+            // use alloc::format;
+            // $crate::sysapi::syscall::log(format!("An exception occurred!\n{}", info).as_bytes());
+
+            $crate::syscall::log(b"An exception in UserSpace occurred!\n");
+            $crate::syscall::panic();
+            loop {}
+        }
+
+        #[export_name = "_start"]
+        pub unsafe extern "sysv64" fn __impl_start(args_ptr: u64, args_len: usize) {
+            let args = core::slice::from_raw_parts(args_ptr as *const _, args_len);
+            let f: fn(&[&str]) = $path;
+            f(args);
+            $crate::syscall::exit($crate::proc::ExitCode::Success);
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! syscall {
+    ($n:expr) => (
+        $crate::syscall::syscall0(
+            $n as usize));
+    ($n:expr, $a1:expr) => (
+        $crate::syscall::syscall1(
+            $n as usize, $a1 as usize));
+    ($n:expr, $a1:expr, $a2:expr) => (
+        $crate::syscall::syscall2(
+            $n as usize, $a1 as usize, $a2 as usize));
+    ($n:expr, $a1:expr, $a2:expr, $a3:expr) => (
+        $crate::syscall::syscall3(
+            $n as usize, $a1 as usize, $a2 as usize, $a3 as usize));
+    ($n:expr, $a1:expr, $a2:expr, $a3:expr, $a4:expr) => (
+        $crate::syscall::syscall4(
+            $n as usize, $a1 as usize, $a2 as usize, $a3 as usize, $a4 as usize));
+}

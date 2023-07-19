@@ -2,7 +2,7 @@ use x86_64::instructions::interrupts;
 
 use call::*;
 
-use crate::syskrnl::sysapi::ExitCode;
+use cinea_os_sysapi::ExitCode;
 
 /// 系统调用
 ///

@@ -15,7 +15,7 @@ use core::panic::PanicInfo;
 use bootloader::{BootInfo, entry_point};
 use x86::int;
 
-use cinea_os::{println, syskrnl};
+use cinea_os::{debugln, println, syskrnl};
 use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::print_keypresses;
 use cinea_os::syskrnl::task::Task;
@@ -35,19 +35,21 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     cinea_os::init(boot_info);
 
-    println!("\n\n\t\t万里之行，始于足下\n\t\t道阻且长，行则将至\n");
+    println!("Cinea OS v1.0-dev by Cinea (Zhang Yao) cineazhan@icloud.com");
+    println!("System Uptime：{:.5} s\n", syskrnl::time::uptime());
 
-    println!("系统uptime：{:.5} s", syskrnl::time::uptime());
-
-    println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
+    //println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
 
     let subp = include_bytes!("../dsk/bin/shell");
     let args: Vec<&str> = vec![];
     let mut flag = 0;
     loop {
         unsafe { int!(0x81) };
+        debugln!("I come back with flag=={}", flag);
+        #[allow(unused)]
         if flag > 0 { break; } else { flag = 1; } // 确保不会无尽循环启动shell
         syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0, 0).unwrap();
+        panic!("The process is Cracked.");
     }
 
     // 0号进程继续它的工作：Handle键盘输入。

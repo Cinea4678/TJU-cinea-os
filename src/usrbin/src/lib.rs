@@ -9,14 +9,13 @@
 
 extern crate alloc;
 
-#[macro_use]
-pub mod sysapi;
+extern crate cinea_os_sysapi;
 
 #[macro_use]
 pub mod std;
 
 pub fn without_schedule<F>(mut function: F) where F:FnMut() {
-    sysapi::syscall::stop_schedule();
+    cinea_os_sysapi::syscall::stop_schedule();
     function();
-    sysapi::syscall::restart_schedule();
+    cinea_os_sysapi::syscall::restart_schedule();
 }

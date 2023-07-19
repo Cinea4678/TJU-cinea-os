@@ -58,6 +58,7 @@ name = "cinea-os"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+ "cinea-os-sysapi",
  "conquer-once",
  "crossbeam",
  "embedded-graphics",
@@ -76,6 +77,10 @@ dependencies = [
  "x86",
  "x86_64",
 ]
+
+[[package]]
+name = "cinea-os-sysapi"
+version = "0.1.0"
 
 [[package]]
 name = "conquer-once"

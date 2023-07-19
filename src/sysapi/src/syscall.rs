@@ -2,8 +2,8 @@ use core::arch::asm;
 
 use alloc::vec::Vec;
 
-use crate::sysapi::call::*;
-use crate::sysapi::proc::ExitCode;
+use crate::call::*;
+use crate::proc::ExitCode;
 use crate::syscall;
 
 pub fn log(buf: &[u8]) -> Option<usize> {

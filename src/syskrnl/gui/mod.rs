@@ -6,6 +6,7 @@ use crate::syskrnl::gui::status_bar::show_status_bar;
 
 pub mod status_bar;
 mod cursor;
+pub mod panic;
 
 /// 图层规则（暂定）
 ///

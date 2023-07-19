@@ -13,3 +13,9 @@ src/usrbin/.idea
 src/usrbin/.vscode
 src/usrbin/.vs
 src/usrbin/build
+
+src/sysapi/target
+src/sysapi/.idea
+src/sysapi/.vscode
+src/sysapi/.vs
+src/sysapi/build

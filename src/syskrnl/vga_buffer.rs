@@ -1,4 +1,4 @@
-// in src/vga_buffer/mod.rs
+// in src/vga_buffer/usrbin_test
 
 use core::fmt;
 

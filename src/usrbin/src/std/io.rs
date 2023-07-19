@@ -2,15 +2,13 @@ use core::convert::Infallible;
 use alloc::string::String;
 use ufmt::uWrite;
 
-use crate::sysapi;
-
 pub struct StdWriter;
 
 impl uWrite for StdWriter {
     type Error = Infallible;
 
     fn write_str(&mut self, s: &str) -> Result<(), Self::Error> {
-        sysapi::syscall::log(s.as_bytes());
+        cinea_os_sysapi::syscall::log(s.as_bytes());
         Ok(())
     }
 }
@@ -60,3 +58,4 @@ macro_rules! print {
 //         }
 //     };
 // }
+

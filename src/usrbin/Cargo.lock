@@ -9,9 +9,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "cinea-os-sysapi"
+version = "0.1.0"
+
+[[package]]
 name = "cinea-os-userspace"
 version = "0.1.0"
 dependencies = [
+ "cinea-os-sysapi",
  "lazy_static",
  "spin 0.9.8",
  "ufmt",

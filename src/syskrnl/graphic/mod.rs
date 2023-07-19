@@ -310,7 +310,17 @@ impl PhysicalWriter {
             if GL.read().len() == 0 { return; }
             let p_lock = GL.read();
             let lock = p_lock[p_lock.len() - 1].lock();
-            let mut graph: Box<Vec<Vec<(Rgb888, bool)>>> = Box::new(lock.data.clone());
+            let mut graph: Box<Vec<Vec<(Rgb888, bool)>>> = if lock.enable {
+                Box::new(lock.data.clone())
+            } else {
+                let mut g = Box::new(lock.data.clone());
+                for r in g.iter_mut() {
+                    for p in r.iter_mut() {
+                        p.1 = false;
+                    }
+                }
+                g
+            };
             drop(lock);
             for layer in (1..p_lock.len() - 1).rev() {
                 let lock = p_lock[layer].lock();

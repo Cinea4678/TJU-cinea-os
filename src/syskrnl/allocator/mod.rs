@@ -48,7 +48,7 @@ unsafe impl GlobalAlloc for Dummy {
 }
 
 #[global_allocator]
-static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+pub static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 pub const HEAP_START: usize = 0x_0001_0000_0000;
 pub const HEAP_SIZE: usize = 40 * 1024 * 1024; // 10 MiB
@@ -163,7 +163,7 @@ pub unsafe fn fix_page_fault_in_userspace(mapper: &mut OffsetPageTable) {
 
     let pages = {
         let start_page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(0x20_0000));
-        let end_page = Page::containing_address(VirtAddr::new(0x21_0000)); // 先开10页，出问题再说
+        let end_page = Page::containing_address(VirtAddr::new(0x32_0000)); // 先开320页，出问题再说
         Page::range_inclusive(start_page, end_page)
     };
 

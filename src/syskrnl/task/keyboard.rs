@@ -29,12 +29,12 @@ pub fn init() {
 pub(crate) fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
         if let Err(_) = queue.push(scancode) {
-            println!("警告：键盘扫描码队列已满; 正在丢弃键盘输入");
+            debugln!("警告：键盘扫描码队列已满; 正在丢弃键盘输入");
         } else {
             WAKER.wake();
         }
     } else {
-        println!("警告：键盘扫描码队列尚未初始化");
+        debugln!("警告：键盘扫描码队列尚未初始化");
     }
 }
 

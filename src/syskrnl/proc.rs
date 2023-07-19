@@ -4,10 +4,8 @@ use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::arch::asm;
-use core::ops::Deref;
 use core::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 
-use crossbeam::atomic::AtomicCell;
 use lazy_static::lazy_static;
 use object::{Object, ObjectSegment};
 use spin::{Mutex, RwLock};
@@ -21,8 +19,7 @@ use crate::syskrnl::allocator::{alloc_pages, fix_page_fault_in_userspace, Locked
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
 use crate::syskrnl::schedule::ProcessScheduler;
 use crate::syskrnl::schedule::roundroll::RoundRollScheduler;
-use crate::syskrnl::sysapi::ExitCode;
-use crate::syskrnl::time::{tsc, uptime};
+use cinea_os_sysapi::ExitCode;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改

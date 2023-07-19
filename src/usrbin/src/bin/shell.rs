@@ -3,17 +3,25 @@
 
 extern crate alloc;
 
-use cinea_os_userspace::{sysapi, entry_point, print};
+use alloc::string::String;
+
+use cinea_os_sysapi::{allocator, entry_point};
+use cinea_os_userspace::print;
 
 entry_point!(main);
 
 #[global_allocator]
-static ALLOCATOR: sysapi::allocator::UserProcAllocator = sysapi::allocator::UserProcAllocator;
+static ALLOCATOR: allocator::UserProcAllocator = allocator::UserProcAllocator;
 
 //const VERSION:&str = "v0.1.0";
 
 fn main(_args: &[&str]) {
-    print!("Cinea OS Shell v0.1.0");
+    let nowdir = String::from("~");
 
-    loop {}
+    loop {
+        print!("{} $ ", nowdir.as_str());
+
+
+        loop {}
+    }
 }
