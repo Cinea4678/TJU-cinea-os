@@ -30,7 +30,9 @@ x86 = "0.52.0"
 x86_64 = "0.14.10"
 
 [package.metadata.bootimage]
-run-args = ["-serial", "stdio", "-m", "1G", "-monitor", "telnet:localhost:4444,server,nowait"]
+run-command = ["python", "start.py", "{}"]
+run-args = ["-serial", "stdio", "-m", "1G", "-monitor", "telnet:localhost:4444,server,nowait",
+    "-drive", "format=qcow2,file=datadisk.qcow2"]
 
 [profile.release]
 debug = 0
