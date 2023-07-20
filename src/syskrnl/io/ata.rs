@@ -410,6 +410,7 @@ pub fn init(){
     let mut buses = BUSES.lock();
     buses.push(Bus::new(0, 0x1F0, 0x3F6, 14));
     buses.push(Bus::new(1, 0x170, 0x376, 15));
+    drop(buses);
 
     for drive in list() {
         debugln!("ATA {}:{} {}\n", drive.bus, drive.dsk, drive);
