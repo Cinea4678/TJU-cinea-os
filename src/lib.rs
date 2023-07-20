@@ -13,7 +13,9 @@ extern crate alloc;
 use bootloader::BootInfo;
 
 pub mod syskrnl;
-//pub mod sysapi;
+
+/// 内核大小，暂定4MB
+pub const KERNEL_SIZE: usize = 4 << 20; // 4 MB
 
 pub fn init(bootinfo: &'static BootInfo) {
     // 加载GDT
@@ -32,7 +34,7 @@ pub fn init(bootinfo: &'static BootInfo) {
     syskrnl::gui::init();
 
     // 启用各类IO设备
-    debugln!("Start timer");
+    syskrnl::io::ata::init();
     syskrnl::time::init();
     syskrnl::task::keyboard::init();
     syskrnl::task::mouse::init();

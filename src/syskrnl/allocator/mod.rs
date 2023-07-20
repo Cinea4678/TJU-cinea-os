@@ -51,7 +51,12 @@ unsafe impl GlobalAlloc for Dummy {
 pub static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 pub const HEAP_START: usize = 0x_0001_0000_0000;
-pub const HEAP_SIZE: usize = 40 * 1024 * 1024; // 10 MiB
+pub const HEAP_SIZE: usize = 40 * 1024 * 1024; // 40 MiB
+
+pub fn avaliable_memory_size() -> usize {
+    let lock = ALLOCATOR.lock();
+    lock.size() - lock.allocated()
+}
 
 pub fn init_heap(
     mapper: &mut impl Mapper<Size4KiB>,

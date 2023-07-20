@@ -52,6 +52,14 @@ impl LinkedListAllocator {
         }
     }
 
+    pub fn size(&self) -> usize {
+        self.size
+    }
+
+    pub fn allocated(&self) -> usize {
+        self.allocated
+    }
+
     /// 根据给定堆区间范围初始化Bump Allocator
     ///
     /// 很显然，这个方法是不安全的，因为给定的区间需要确保未被使用，此外这个函数也不能被多次调用

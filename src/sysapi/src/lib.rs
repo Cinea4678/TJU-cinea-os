@@ -1,3 +1,28 @@
+//! This crate provides macros and functions for both kernel and userspace.
+//!
+//! Especially, this module provides a set of macros for making system calls.
+//!
+//! The macros provided are:
+//!
+//! - `syscall0(n: usize) -> usize`: Make a system call with no arguments.
+//! - `syscall1(n: usize, a1: usize) -> usize`: Make a system call with one argument.
+//! - `syscall2(n: usize, a1: usize, a2: usize) -> usize`: Make a system call with two arguments.
+//! - `syscall3(n: usize, a1: usize, a2: usize, a3: usize) -> usize`: Make a system call with three arguments.
+//! - `syscall4(n: usize, a1: usize, a2: usize, a3: usize, a4: usize) -> usize`: Make a system call with four arguments.
+//!
+//! # Examples
+//!
+//! ```
+//! let result = syscall0(SYS_getpid);
+//! println!("PID: {}", result);
+//! ```
+//!
+//! # Safety
+//!
+//! These macros are unsafe because they allow calling arbitrary system calls with arbitrary arguments.
+//! It is the responsibility of the caller to ensure that the arguments are valid and that the system call is safe to make.
+//! Additionally, the return value of the system call is not checked, so it is up to the caller to handle any errors that may occur.
+
 #![no_std] // 不链接Rust标准库
 #![no_main]
 #![feature(abi_x86_interrupt)]
@@ -10,9 +35,9 @@
 extern crate alloc;
 
 pub mod syscall;
-pub mod proc;
 pub mod allocator;
 pub mod call;
+pub mod fs;
 
 /// 进程退出代码
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

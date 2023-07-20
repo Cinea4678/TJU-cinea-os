@@ -5,6 +5,7 @@ use spin::Mutex;
 pub mod pci;
 pub mod qemu;
 pub mod mouse;
+pub mod ata;
 
 pub enum VideoMode {
     Text,
