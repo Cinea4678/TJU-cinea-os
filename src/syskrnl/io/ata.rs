@@ -3,14 +3,16 @@ use alloc::vec::Vec;
 use core::fmt;
 
 use bit_field::BitField;
-use spin::Mutex;
 use lazy_static::lazy_static;
+use spin::Mutex;
 use x86_64::instructions::port::{Port, PortReadOnly, PortWriteOnly};
 
 use crate::{debugln, syskrnl};
 
 /// ATA设备的块大小
 pub const BLOCK_SIZE: usize = 512;
+pub const BLOCK_BIN_SZ: usize = 9;
+pub const BLOCK_MASK: usize = 0x1FF;
 
 /// ATA 设备支持的命令类型
 #[repr(u16)]
