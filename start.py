@@ -1,9 +1,10 @@
 import os
 import sys
-import time
 
 FS = "datadisk.img"
 FS_SOURCE = "dsk"
+ALWAYS_FETCH = True
+ALWAYS_RECOPILE = True
 
 if sys.version_info.major < 3:
     print("Trying to call Python 3...")
@@ -28,6 +29,7 @@ def get_latest_modified_time(directory):
 
 
 PWD = os.path.dirname(os.path.abspath(__file__))
+EXE_PREFIX = "" if platform.system() == "Windows" else "./"
 EXE_SUFFIX = ".exe" if platform.system() == "Windows" else ""
 
 argv = sys.argv
@@ -38,25 +40,27 @@ if len(argv) < 2:
 BOOT_IMAGE = argv[1]
 
 print("Checking need for compile FS Helper...")
-FS_COMPLIER = "fs-compiler" + EXE_SUFFIX
-if not os.path.exists(FS_COMPLIER):
+FS_COMPLIER = EXE_PREFIX + "fs-compiler" + EXE_SUFFIX
+if ALWAYS_FETCH:
+    os.system("git submodule update --remote")
+if ALWAYS_RECOPILE or not os.path.exists(FS_COMPLIER):
     os.makedirs("../tmp-compiling", exist_ok=True)
     TOOL_DIR = "../tmp-compiling"
 
     if os.path.exists("../tmp-compiling"):
-        shutil.rmtree("../tmp-compiling")
+        shutil.rmtree("../tmp-compiling", ignore_errors=True)
 
     if not os.path.exists("src/tools/fs-compiler"):
         print("Cloning fs-compiler...")
         os.system("git clone https://github.com/Cinea4678/TJU-cinea-os-tools.git ../tmp-compiling")
     else:
-        shutil.copy("src/tools/fs-compiler", "../tmp-compiling/fs-compiler")
+        shutil.copytree("src/tools/fs-compiler", "../tmp-compiling/fs-compiler", symlinks=True)
 
     os.chdir(TOOL_DIR + "/fs-compiler")
     os.system("cargo build --release")
     os.chdir(PWD)
     shutil.copy(TOOL_DIR + "/fs-compiler/target/release/" + FS_COMPLIER, FS_COMPLIER)
-    os.removedirs("../tmp-compiling")
+    shutil.rmtree("../tmp-compiling", ignore_errors=True)
 
 print("Checking need for recompile the file system...")
 re_compile = False
@@ -76,4 +80,4 @@ else:
 
 print("Starting QEMU...")
 # os.system(f"qemu-system-x86_64 -drive format=raw,file={BOOT_IMAGE} -serial " +
-#          "stdio -m 1G -monitor telnet:localhost:4444,server,nowait -drive format=qcow2,file=datadisk.qcow2")
+#           "stdio -m 1G -monitor telnet:localhost:4444,server,nowait -drive format=qcow2,file=datadisk.qcow2")
