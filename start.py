@@ -3,8 +3,8 @@ import sys
 
 FS = "datadisk.img"
 FS_SOURCE = "dsk"
-ALWAYS_FETCH = True
-ALWAYS_RECOPILE = True
+ALWAYS_FETCH_TOOLS = False
+ALWAYS_RECOMPILE_TOOLS = False
 
 if sys.version_info.major < 3:
     print("Trying to call Python 3...")
@@ -41,9 +41,9 @@ BOOT_IMAGE = argv[1]
 
 print("Checking need for compile FS Helper...")
 FS_COMPLIER = EXE_PREFIX + "fs-compiler" + EXE_SUFFIX
-if ALWAYS_FETCH:
+if ALWAYS_FETCH_TOOLS:
     os.system("git submodule update --remote")
-if ALWAYS_RECOPILE or not os.path.exists(FS_COMPLIER):
+if ALWAYS_RECOMPILE_TOOLS or not os.path.exists(FS_COMPLIER):
     os.makedirs("../tmp-compiling", exist_ok=True)
     TOOL_DIR = "../tmp-compiling"
 
@@ -74,10 +74,10 @@ if re_compile:
     print("Recompiling the file system...")
     os.system(FS_COMPLIER + " " + FS_SOURCE + " " + FS)
     os.system("qemu-img create -f qcow2 -o preallocation=off datadisk.qcow2 4G")
-    os.system("qemu-img convert -O qcow2 " + FS + " datadisk.qcow2")
+    os.system("qemu-img convert -O qcow2" + FS + " datadisk.qcow2")
 else:
     print("File System is already newest.")
 
-print("Starting QEMU...")
-# os.system(f"qemu-system-x86_64 -drive format=raw,file={BOOT_IMAGE} -serial " +
-#           "stdio -m 1G -monitor telnet:localhost:4444,server,nowait -drive format=qcow2,file=datadisk.qcow2")
+print("Starting QEMU...", flush=True)
+os.system(f"qemu-system-x86_64 -drive format=raw,file={BOOT_IMAGE} -serial " +
+          "stdio -m 1G -monitor telnet:localhost:4444,server,nowait -drive format=qcow2,file=datadisk.qcow2")
