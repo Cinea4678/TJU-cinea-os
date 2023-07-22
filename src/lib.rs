@@ -7,6 +7,7 @@
 #![feature(const_mut_refs)]
 #![feature(atomic_bool_fetch_not)]
 #![feature(naked_functions)]
+#![feature(exclusive_range_pattern)]
 
 extern crate alloc;
 

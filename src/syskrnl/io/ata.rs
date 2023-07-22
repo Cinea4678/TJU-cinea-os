@@ -224,9 +224,7 @@ impl Bus {
         Ok(())
     }
 
-    /// 从ATA设备读取
-    ///
-    /// 数据
+    /// 从ATA设备读取数据
     fn read(&mut self, drive: u8, block: u32, buf: &mut [u8]) -> Result<(), ()> {
         debug_assert!(buf.len() == BLOCK_SIZE);
         self.setup_pio(drive, block)?;

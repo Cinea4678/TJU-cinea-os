@@ -43,7 +43,7 @@ macro_rules! debugln {
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
     // 向Qemu也发送一份
-    // qemu::_qemu_print(args);
+    qemu::_qemu_print(args);
 
     if VIDEO_MODE.lock().is_text() {
         crate::syskrnl::vga_buffer::_print(args);

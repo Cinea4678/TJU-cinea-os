@@ -6,6 +6,9 @@ use crate::syskrnl::time::cmos::{RawTime, read_rtc};
 pub mod cmos;
 mod pit;
 pub mod tsc;
+mod datetime;
+
+pub use datetime::*;
 
 const TIME_ZONE: u8 = 8;
 

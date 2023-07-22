@@ -1,6 +1,3 @@
 [submodule "src/tools"]
 	path = src/tools
 	url = https://github.com/Cinea4678/TJU-cinea-os-tools.git
-[submodule "src/usrbin/src/tools"]
-	path = src/usrbin/src/tools
-	url = https://github.com/Cinea4678/TJU-cinea-os-tools.git

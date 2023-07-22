@@ -7,15 +7,14 @@
 
 extern crate alloc;
 
-use alloc::vec;
+use alloc::{format, vec};
 use alloc::vec::Vec;
-use core::arch::asm;
 use core::panic::PanicInfo;
 
 use bootloader::{BootInfo, entry_point};
 use x86::int;
 
-use cinea_os::{debugln, println, syskrnl};
+use cinea_os::{debugln, hlt_loop, println, syskrnl};
 use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::print_keypresses;
 use cinea_os::syskrnl::task::Task;
@@ -24,9 +23,9 @@ entry_point!(kernel_main);
 
 /// 这个函数将在panic时被调用
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
-    println!("{}", _info);
-    cinea_os::hlt_loop();
+fn panic(info: &PanicInfo) -> ! {
+    println!("{:?}", info);
+    hlt_loop();
 }
 
 /// 内核主程序（0号进程）
@@ -37,6 +36,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("Cinea OS v1.0-dev by Cinea (Zhang Yao) cineazhan@icloud.com");
     println!("System Uptime：{:.5} s\n", syskrnl::time::uptime());
+
+    syskrnl::fs::test();
 
     //println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
 
