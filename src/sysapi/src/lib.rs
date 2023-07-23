@@ -89,7 +89,7 @@ macro_rules! entry_point {
             let args = core::slice::from_raw_parts(args_ptr as *const _, args_len);
             let f: fn(&[&str]) = $path;
             f(args);
-            $crate::syscall::exit($crate::proc::ExitCode::Success);
+            $crate::syscall::exit($crate::ExitCode::Success);
         }
     };
 }

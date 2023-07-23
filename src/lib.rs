@@ -9,6 +9,7 @@
 #![feature(naked_functions)]
 #![feature(exclusive_range_pattern)]
 #![feature(custom_test_frameworks)]
+#![feature(vec_into_raw_parts)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 

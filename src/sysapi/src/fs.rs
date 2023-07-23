@@ -1,15 +1,21 @@
 use alloc::boxed::Box;
 use alloc::string::String;
+use alloc::vec;
 use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::ops::Add;
+use core::ptr::slice_from_raw_parts;
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
 use FileError::BadRelatePathError;
+use crate::call::{LIST, LOG};
+use crate::syscall;
 
 use crate::time::{Date, DateTime};
 
-pub trait FileIO {
+pub trait FileIO: Send + Sync {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()>;
     fn write(&mut self, buf: &[u8]) -> Result<usize, ()>;
 }
@@ -137,6 +143,8 @@ pub enum FileError {
     BadRelatePathError,
     /// **Not a Dir Error**, seen in operations must be executed to directories.
     NotADirError,
+    /// Seen in reading or writing device files.
+    DeviceIOError,
 }
 
 bitflags! {
@@ -187,6 +195,8 @@ bitflags! {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metadata {
+    /// Absolute Path
+    path: String,
     /// Short file name
     short_file_name: String,
     /// Full file name
@@ -209,9 +219,10 @@ pub struct Metadata {
 
 impl Metadata {
     /// Initialize the object with DirEntry
-    pub fn from_dir_entry<'a, IO, TP, OCC>(entry: fatfs::DirEntry<'a, IO, TP, OCC>) -> Self
+    pub fn from_dir_entry<'a, IO, TP, OCC>(entry: fatfs::DirEntry<'a, IO, TP, OCC>, path: &str) -> Self
         where IO: fatfs::ReadWriteSeek, OCC: fatfs::OemCpConverter {
         Self {
+            path: String::from(path),
             short_file_name: entry.short_file_name(),
             file_name: entry.file_name(),
             attributes: FileAttributes::from_bits_retain(entry.attributes().bits()),
@@ -287,13 +298,54 @@ pub fn process_relative_path(splited_path: &mut Vec<&str>) -> Result<(), FileErr
     Ok(())
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileDevice(usize);
+
+impl FileDevice {}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum FileEntry {
     Dir(Metadata),
     File(Metadata),
-    Device(Box<dyn FileIO>),
+    Device(FileDevice),
 }
 
 impl FileEntry {
-    pub fn list() {}
+    pub fn new_dir(metadata: Metadata) -> Self {
+        Self::Dir(metadata)
+    }
+
+    pub fn new_file(metadata: Metadata) -> Self {
+        Self::File(metadata)
+    }
+
+    pub fn new_device(device: usize) -> Self {
+        Self::Device(FileDevice(device))
+    }
+
+    pub fn list(&mut self) -> Result<Vec<Self>, FileError> {
+        match self {
+            FileEntry::Dir(dir) => {
+                // 调用系统调用查询
+                let encoded = postcard::to_allocvec(dir).unwrap();
+
+                let ret = unsafe { syscall!(LIST,encoded.as_ptr() as usize) };
+
+                let result_ptr = ret as *const u64;
+                let result_len = unsafe { *result_ptr };
+                let result_raw = unsafe { &*slice_from_raw_parts(ret.add(1) as *const u8, result_len as usize) };
+
+                // let decoded: Result<Result<Vec<Self>, FileError>, _> = postcard::from_bytes(result_raw);
+                unimplemented!();
+
+
+                // Ok(vec![])
+            },
+            _ => { Err(FileError::NotADirError) }
+        }
+    }
 }
 
+pub fn info(path: &str) -> FileEntry {
+    todo!()
+}

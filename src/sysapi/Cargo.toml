@@ -10,3 +10,4 @@ fatfs = { git = "https://github.com/rafalh/rust-fatfs.git", default-features = f
 serde = { version = "1.0.174", default-features = false, features = ["alloc"] }
 postcard = { version = "1.0.6", default-features = false, features = ["alloc"] }
 bitflags = { version = "2.3.3", features = ["serde"] }
+ufmt = "0.2.0"

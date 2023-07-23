@@ -206,14 +206,14 @@ extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: 
     let arg3 = regs.rdx;
     let arg4 = regs.r8;
 
-    if n == syskrnl::syscall::call::SPAWN { // 保存现场
+    if n == cinea_os_sysapi::call::SPAWN { // 保存现场
         syskrnl::proc::set_stack_frame(**stack_frame);
         syskrnl::proc::set_registers(*regs);
     }
 
     let res = syskrnl::syscall::dispatcher(n, arg1, arg2, arg3, arg4);
 
-    if n == syskrnl::syscall::call::EXIT { // 恢复现场
+    if n == cinea_os_sysapi::call::EXIT { // 恢复现场
         let sf = syskrnl::proc::stack_frame();
         unsafe {
             //stack_frame.as_mut().write(sf);

@@ -8,6 +8,8 @@ start.sh
 *.iso
 *.img
 
+fs-compiler*
+
 src/usrbin/target
 src/usrbin/.idea
 src/usrbin/.vscode

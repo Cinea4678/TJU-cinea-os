@@ -2,6 +2,7 @@ use core::sync::atomic::Ordering;
 use crate::{debugln, print, println, syskrnl};
 use crate::syskrnl::proc::Process;
 use cinea_os_sysapi::ExitCode;
+use crate::syskrnl::allocator;
 
 pub fn exit(code: ExitCode) -> ExitCode {
     syskrnl::proc::exit();
@@ -75,4 +76,23 @@ pub fn stop_schedule() {
 
 pub fn restart_schedule() {
     syskrnl::interrupts::NO_SCHEDULE.store(false, Ordering::SeqCst);
+}
+
+pub fn test_serde(ptr: usize) -> usize {
+    use cinea_os_sysapi::call::{syscall_serialized_for_userspace, syscall_deserialized, syscall_deserialized_prepare, _TestSerde};
+
+    let vec_data = syscall_deserialized_prepare(ptr);
+    let obj: _TestSerde = syscall_deserialized(&vec_data).unwrap();
+    println!("以下是内核通过系统调用接收到的数据：\n{:?}", obj);
+
+    let obj_to_send = _TestSerde {
+        message: alloc::string::String::from("I will be send to UserSpace"),
+        number: 666,
+    };
+
+    println!("以下是内核通过系统调用返回给用户进程的数据：\n{:?}", obj_to_send);
+    let allocator = syskrnl::proc::heap_allocator().clone();
+    let ptr_to_send = syscall_serialized_for_userspace(&obj_to_send, |x| unsafe { allocator.lock().alloc(x) });
+
+    ptr_to_send
 }

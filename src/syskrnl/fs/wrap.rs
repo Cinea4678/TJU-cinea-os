@@ -81,11 +81,13 @@ fn seekpath<'a, IO, TP, OCC>(path: &str, root_dir: fatfs::Dir<'a, IO, TP, OCC>)
 pub fn metadata(path: &str) -> Result<Metadata, FileError> {
     let lock = DATA_DISK_FS.lock();
     let entry = seekpath(path, lock.root_dir())?;
-    Ok(fsapi::Metadata::from_dir_entry(entry))
+    Ok(fsapi::Metadata::from_dir_entry(entry, path))
 }
 
 /// 列出目录下的文件
-
+pub fn list(path: &str) -> Result<Vec<fsapi::FileEntry>, FileError> {
+    todo!()
+}
 
 
 
