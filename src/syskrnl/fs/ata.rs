@@ -1,6 +1,6 @@
 use core::cmp::min;
 
-use fatfs::{IoBase, IoError, Read, Seek, SeekFrom, Write};
+use fatfs::{IoBase, Read, Seek, SeekFrom, Write};
 
 use ata::{BLOCK_BIN_SZ, BLOCK_MASK, BLOCK_SIZE};
 

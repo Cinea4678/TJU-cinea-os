@@ -1,6 +1,6 @@
 use alloc::format;
 use core::arch::asm;
-use core::ops::Add;
+
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
@@ -134,7 +134,7 @@ extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: Interrup
 
 /// 页错异常处理函数
 extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
-    use crate::hlt_loop;
+    
     use x86_64::registers::control::Cr2;
 
     qemu_print(format!("EXCEPTION: PAGE FAULT\n").as_str());

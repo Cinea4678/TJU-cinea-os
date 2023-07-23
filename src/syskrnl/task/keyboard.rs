@@ -9,7 +9,7 @@ use pc_keyboard::{DecodedKey, HandleControl, Keyboard, layouts, ScancodeSet1};
 use x86::io::inb;
 use x86_64::instructions::interrupts;
 
-use crate::{debug, print, println, syskrnl};
+use crate::{debug, print, syskrnl};
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();

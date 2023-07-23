@@ -52,6 +52,7 @@ enum Status {
     BSY = 7,
 }
 
+#[allow(dead_code)]
 pub struct Bus {
     id: u8,
     irq: u8,

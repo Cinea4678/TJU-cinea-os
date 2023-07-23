@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+
 use x86_64::instructions::interrupts;
 
 use cinea_os_sysapi::call::*;

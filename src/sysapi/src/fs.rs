@@ -1,6 +1,4 @@
-use alloc::boxed::Box;
 use alloc::string::String;
-use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt::Debug;
 use core::ops::Add;
@@ -10,9 +8,9 @@ use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
 
 use FileError::BadRelatePathError;
-use crate::call::{LIST, LOG};
-use crate::syscall;
 
+use crate::call::LIST;
+use crate::syscall;
 use crate::time::{Date, DateTime};
 
 pub trait FileIO: Send + Sync {

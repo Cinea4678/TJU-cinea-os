@@ -15,7 +15,7 @@
 
 extern crate alloc;
 
-use bootloader::{BootInfo, entry_point};
+use bootloader::{BootInfo};
 
 pub mod syskrnl;
 

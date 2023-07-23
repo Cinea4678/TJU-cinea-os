@@ -36,10 +36,9 @@
 
 use alloc::vec;
 use alloc::vec::Vec;
-use core::alloc::{GlobalAlloc, Layout};
+use core::alloc::Layout;
 
 use serde::{Deserialize, Serialize};
-use ufmt::uDebug;
 
 /// exit the process
 pub const EXIT: usize = 0x1;

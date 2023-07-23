@@ -85,7 +85,7 @@ pub fn metadata(path: &str) -> Result<Metadata, FileError> {
 }
 
 /// 列出目录下的文件
-pub fn list(path: &str) -> Result<Vec<fsapi::FileEntry>, FileError> {
+pub fn list(_path: &str) -> Result<Vec<fsapi::FileEntry>, FileError> {
     todo!()
 }
 

@@ -1,6 +1,6 @@
 use x86_64::instructions::interrupts;
 
-use crate::{debugln, println};
+
 use crate::syskrnl::time::cmos::{RawTime, read_rtc};
 
 pub mod cmos;

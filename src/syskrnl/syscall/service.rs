@@ -2,7 +2,7 @@ use core::sync::atomic::Ordering;
 use crate::{debugln, print, println, syskrnl};
 use crate::syskrnl::proc::Process;
 use cinea_os_sysapi::ExitCode;
-use crate::syskrnl::allocator;
+
 
 pub fn exit(code: ExitCode) -> ExitCode {
     syskrnl::proc::exit();

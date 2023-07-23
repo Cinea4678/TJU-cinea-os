@@ -183,7 +183,6 @@ pub unsafe fn fix_page_fault_in_userspace(mapper: &mut OffsetPageTable) {
 #[allow(dead_code)]
 pub fn test_allocator() {
     use alloc::boxed::Box;
-    use crate::println;
     use alloc::vec::Vec;
     use alloc::vec;
     use alloc::rc::Rc;
