@@ -19,6 +19,7 @@ use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::print_keypresses;
 use cinea_os::syskrnl::task::Task;
 
+#[cfg(not(test))]
 entry_point!(kernel_main);
 
 /// 这个函数将在panic时被调用
@@ -29,6 +30,7 @@ fn panic(info: &PanicInfo) -> ! {
 }
 
 /// 内核主程序（0号进程）
+#[cfg(not(test))]
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     println!("Launching Cinea's OS...\n");
 
@@ -36,8 +38,6 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 
     println!("Cinea OS v1.0-dev by Cinea (Zhang Yao) cineazhan@icloud.com");
     println!("System Uptime：{:.5} s\n", syskrnl::time::uptime());
-
-    syskrnl::fs::test();
 
     //println!("我是内核，我即将启动用户进程并将CPU调整到环三！");
 

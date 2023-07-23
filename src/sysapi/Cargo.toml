@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+fatfs = { git = "https://github.com/rafalh/rust-fatfs.git", default-features = false, features = ["alloc"] }
+serde = { version = "1.0.174", default-features = false, features = ["alloc"] }
+postcard = { version = "1.0.6", default-features = false, features = ["alloc"] }
+bitflags = { version = "2.3.3", features = ["serde"] }

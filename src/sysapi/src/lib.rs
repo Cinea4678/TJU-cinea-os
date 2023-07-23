@@ -38,6 +38,7 @@ pub mod syscall;
 pub mod allocator;
 pub mod call;
 pub mod fs;
+pub mod time;
 
 /// 进程退出代码
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -110,4 +111,10 @@ macro_rules! syscall {
     ($n:expr, $a1:expr, $a2:expr, $a3:expr, $a4:expr) => (
         $crate::syscall::syscall4(
             $n as usize, $a1 as usize, $a2 as usize, $a3 as usize, $a4 as usize));
+}
+
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    loop {}
 }

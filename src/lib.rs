@@ -8,10 +8,13 @@
 #![feature(atomic_bool_fetch_not)]
 #![feature(naked_functions)]
 #![feature(exclusive_range_pattern)]
+#![feature(custom_test_frameworks)]
+#![test_runner(crate::test_runner)]
+#![reexport_test_harness_main = "test_main"]
 
 extern crate alloc;
 
-use bootloader::BootInfo;
+use bootloader::{BootInfo, entry_point};
 
 pub mod syskrnl;
 
@@ -44,5 +47,34 @@ pub fn init(bootinfo: &'static BootInfo) {
 pub fn hlt_loop() -> ! {
     loop {
         x86_64::instructions::hlt();
+    }
+}
+
+#[cfg(test)]
+entry_point!(kernel_main);
+
+#[cfg(test)]
+fn kernel_main(boot_info: &'static BootInfo) -> ! {
+    init(boot_info);
+
+    #[cfg(test)]
+    test_main();
+
+    hlt_loop()
+}
+
+/// 这个函数将在panic时被调用
+#[cfg(test)]
+#[panic_handler]
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    println!("{:?}", info);
+    hlt_loop();
+}
+
+#[cfg(test)]
+fn test_runner(tests: &[&dyn Fn()]) {
+    println!("Running {} tests", tests.len());
+    for test in tests {
+        test();
     }
 }
