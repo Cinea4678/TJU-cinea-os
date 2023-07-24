@@ -34,9 +34,11 @@
 
 extern crate alloc;
 
+#[macro_use]
+pub mod call;
+
 pub mod syscall;
 pub mod allocator;
-pub mod call;
 pub mod fs;
 pub mod time;
 

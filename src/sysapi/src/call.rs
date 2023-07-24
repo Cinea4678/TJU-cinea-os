@@ -153,3 +153,36 @@ pub fn syscall_deserialized_prepare(ptr: usize) -> Vec<u8> {
 pub fn syscall_deserialized<'de, T>(vec_data: &'de Vec<u8>) -> Result<T, postcard::Error> where T: Deserialize<'de> {
     postcard::from_bytes(vec_data.as_slice())
 }
+
+#[macro_export]
+macro_rules! syscall_with_deserialize {
+    ($($arg:tt)*) => {
+        {
+            let _ret = unsafe { syscall!($($arg)*) };
+            let _ret_vec_data = $crate::call::syscall_deserialized_prepare(_ret);
+            $crate::call::syscall_deserialized(&_ret_vec_data)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! syscall_with_serdeser {
+    ($call:expr,$obj:expr) => {
+        {
+            let _encoded = $crate::call::syscall_serialized(&$obj);
+            let _ret = unsafe { syscall!($call, _encoded) };
+            let _ret_vec_data = $crate::call::syscall_deserialized_prepare(_ret);
+            $crate::call::syscall_deserialized(&_ret_vec_data)
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! syscall_with_serialize {
+    ($call:expr,$obj:expr) => {
+        {
+            let _encoded = $crate::call::syscall_serialized(&$obj);
+            unsafe { syscall!($call, _encoded) };
+        }
+    };
+}

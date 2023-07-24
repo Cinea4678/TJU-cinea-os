@@ -1,5 +1,6 @@
+use alloc::string::String;
 use core::sync::atomic::Ordering;
-use crate::{debugln, print, println, syskrnl};
+use crate::{debugln, print, println, syscall_serialized_ret, syskrnl};
 use crate::syskrnl::proc::Process;
 use cinea_os_sysapi::ExitCode;
 
@@ -48,7 +49,7 @@ pub fn log(msg: usize, len: usize) -> usize {
 }
 
 pub fn alloc(size: usize, align: usize) -> usize {
-    debugln!("ALLOC proc_id:{}",syskrnl::proc::id());
+    // debugln!("ALLOC proc_id:{}",syskrnl::proc::id());
     let allocator = syskrnl::proc::heap_allocator();
     if allocator.lock().free_space() < size {
         // 需要生长，计算生长的大小
@@ -79,7 +80,7 @@ pub fn restart_schedule() {
 }
 
 pub fn test_serde(ptr: usize) -> usize {
-    use cinea_os_sysapi::call::{syscall_serialized_for_userspace, syscall_deserialized, syscall_deserialized_prepare, _TestSerde};
+    use cinea_os_sysapi::call::{syscall_deserialized, syscall_deserialized_prepare, _TestSerde};
 
     let vec_data = syscall_deserialized_prepare(ptr);
     let obj: _TestSerde = syscall_deserialized(&vec_data).unwrap();
@@ -91,8 +92,16 @@ pub fn test_serde(ptr: usize) -> usize {
     };
 
     println!("以下是内核通过系统调用返回给用户进程的数据：\n{:?}", obj_to_send);
-    let allocator = syskrnl::proc::heap_allocator().clone();
-    let ptr_to_send = syscall_serialized_for_userspace(&obj_to_send, |x| unsafe { allocator.lock().alloc(x) });
+    let ptr_to_send = syscall_serialized_ret!(&obj_to_send);
 
+    ptr_to_send
+}
+
+pub fn list(ptr: usize) -> usize {
+    use cinea_os_sysapi::call::{syscall_deserialized, syscall_deserialized_prepare};
+    let vec_data = syscall_deserialized_prepare(ptr);
+    let obj: String = syscall_deserialized(&vec_data).unwrap();
+
+    let ptr_to_send = syscall_serialized_ret!(&syskrnl::fs::list(obj.as_str()));
     ptr_to_send
 }

@@ -68,6 +68,7 @@ version = "0.1.0"
 dependencies = [
  "bit_field",
  "bootloader",
+ "byteorder",
  "cinea-os-sysapi",
  "conquer-once",
  "crossbeam",

@@ -9,6 +9,7 @@ default-run = "cinea-os"
 [dependencies]
 bit_field = "0.10.2"
 bootloader = { version = "0.9.23", features = ["map_physical_memory"] }
+byteorder = { version = "1.4.3", default-features = false }
 cinea-os-sysapi = { version = "0.1.0", path = "src/sysapi" }
 conquer-once = { version = "0.4.0", default-features = false }
 crossbeam = { version = "0.8.2", default-features = false, features = ["alloc", "crossbeam-deque", "crossbeam-queue"] }

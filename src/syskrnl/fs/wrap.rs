@@ -1,22 +1,24 @@
 //! 本文件提供对fatfs的封装
 
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::sync::atomic::{AtomicUsize, Ordering};
+
 use fatfs::{DirEntry, Read};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-use cinea_os_sysapi::fs::{dirname, filename, Metadata, realpath};
+use cinea_os_sysapi::fs::{dirname, FileEntry, filename, Metadata, path_combine, realpath};
 use cinea_os_sysapi::fs as fsapi;
-use cinea_os_sysapi::fs::FileError::NotADirError;
+use fsapi::FileError::{self, NotADirError, NotFoundError, RootDirError};
 
-use fsapi::FileError::{self, NotFoundError, RootDirError};
 use crate::syskrnl::proc;
+use crate::syskrnl::proc::set_dir;
 
 use super::ata::AtaDeviceReader;
 use super::oem::Cp437Converter;
 use super::time::CosTimeProvider;
-
 
 lazy_static! {
     static ref DATA_DISK_FS: Mutex<fatfs::FileSystem<AtaDeviceReader, CosTimeProvider, Cp437Converter>> = {
@@ -40,11 +42,25 @@ fn test() {
     println!("DATAFS Type: {:?}", DATA_DISK_FS.lock().fat_type());
 }
 
+fn is_device<IO, TP, OCC>(mut file: fatfs::File<IO, TP, OCC>) -> Option<usize>
+    where IO: fatfs::ReadWriteSeek, TP: fatfs::TimeProvider, OCC: fatfs::OemCpConverter {
+    let mut buf = [0u8; 9];
+    if let Ok(len) = file.read(&mut buf) {
+        if len == 9 {
+            if let Ok(id) = super::device::device_id(&buf) {
+                return Some(id);
+            }
+        }
+    }
+    None
+}
+
 fn seekpath<'a, IO, TP, OCC>(path: &str, root_dir: fatfs::Dir<'a, IO, TP, OCC>)
                              -> Result<DirEntry<'a, IO, TP, OCC>, FileError>
     where IO: fatfs::ReadWriteSeek, TP: fatfs::TimeProvider, OCC: fatfs::OemCpConverter {
     // Split the path
     let path = realpath(path, proc::dir().as_str());
+    let path = path.to_uppercase();
     let dirname = dirname(path.as_str());
     let filename = filename(path.as_str());
     let mut spilted_path: Vec<_> = dirname.split('/').filter(|x| { x.len() > 0 }).collect();
@@ -85,11 +101,24 @@ pub fn metadata(path: &str) -> Result<Metadata, FileError> {
 }
 
 /// 列出目录下的文件
-pub fn list(_path: &str) -> Result<Vec<fsapi::FileEntry>, FileError> {
-    todo!()
+pub fn list(path: &str) -> Result<Vec<FileEntry>, FileError> {
+    let lock = DATA_DISK_FS.lock();
+    let entry = seekpath(path, lock.root_dir())?;
+    if !entry.is_dir() {
+        return Err(FileError::NotADirError);
+    }
+
+    let result: Vec<FileEntry> = entry.to_dir()
+        .iter()
+        .filter(|dir_entry| { dir_entry.is_ok() })
+        .map(|dir_entry| {
+            let dir_entry = dir_entry.unwrap();
+            let new_path = path_combine(path, dir_entry.file_name().as_str());
+            if dir_entry.is_dir() { FileEntry::Dir(fsapi::Metadata::from_dir_entry(dir_entry, new_path.as_str())) } else { FileEntry::File(fsapi::Metadata::from_dir_entry(dir_entry, new_path.as_str())) }
+        })
+        .collect();
+    Ok(result)
 }
-
-
 
 /// 获取当前工作路径
 pub fn current_dir() -> String {
@@ -98,17 +127,77 @@ pub fn current_dir() -> String {
 
 /// 更换路径
 pub fn change_dir(path: &str) -> Result<(), FileError> {
-    let meta = metadata(path)?;
+    let path = fsapi::path_standardize(path)?;
+    let meta = metadata(path.as_str())?;
     if !meta.is_dir() {
         Err(NotADirError)
     } else {
+        set_dir(path.as_str());
         Ok(())
     }
+}
+
+/// 打开文件句柄
+#[derive(Clone, Debug)]
+pub struct OpenFileHandle {
+    pub id: usize,
+    pub path: String,
+}
+
+/// 系统文件表-条目
+pub struct SysyemFileEntry {
+    pub path: String,
+    pub mutex: bool,
+}
+
+static USER_FILE_HANDLER_ID: AtomicUsize = AtomicUsize::new(1);
+
+lazy_static! {
+    static ref SYSTEM_FILE_TABLE: Mutex<BTreeMap<String,SysyemFileEntry>> = Mutex::new(BTreeMap::new());
+}
+
+/// 打开文件（内核级）
+pub fn open(path: &str, write: bool) -> Result<usize, FileError> {
+    let path = fsapi::path_standardize(path)?;
+    let data = metadata(path.as_str())?;
+    if !data.is_file() { Err(FileError::NotAFileError) } else {
+        let mut lock = SYSTEM_FILE_TABLE.lock();
+        if let Some(sft) = lock.get(path.as_str()) {
+            if sft.mutex { Err(FileError::FileBusyError) } else {
+                let fh = proc::file_handles();
+                let new_id = USER_FILE_HANDLER_ID.fetch_add(1, Ordering::Relaxed);
+                fh.lock().insert(new_id, OpenFileHandle {
+                    id: new_id,
+                    path,
+                });
+                Ok(new_id)
+            }
+        } else {
+            lock.insert(path.clone(), SysyemFileEntry {
+                path: path.clone(),
+                mutex: write,
+            });
+            let fh = proc::file_handles();
+            let new_id = USER_FILE_HANDLER_ID.fetch_add(1, Ordering::Relaxed);
+            fh.lock().insert(new_id, OpenFileHandle {
+                id: new_id,
+                path,
+            });
+            Ok(new_id)
+        }
+    }
+}
+
+/// 关闭文件（内核）
+pub fn close(id: usize) -> Result<(), FileError> {
+    let mut lock = SYSTEM_FILE_TABLE.lock();
+    todo!()
 }
 
 #[cfg(test)]
 mod tests {
     use alloc::vec;
+
     use super::fsapi::process_relative_path;
 
     #[test_case]
@@ -148,6 +237,36 @@ mod tests {
         assert_eq!(alloc::vec::Vec::<&str>::new(), test_set11);
         process_relative_path(&mut test_set12).unwrap_err();
         println!("[ok]  FileSystem API test_process_relative_path")
+    }
+
+    #[test_case]
+    fn test_path_standardize() {
+        use super::fsapi::path_standardize;
+        // 测试路径为小写字母的情况
+        let path = "/my_folder/my_file.txt";
+        let result = path_standardize(path).unwrap();
+        assert_eq!(result, "/MY_FOLDER/MY_FILE.TXT");
+
+        // 测试路径为大写字母的情况
+        let path = "/MY_FOLDER/MY_FILE.TXT";
+        let result = path_standardize(path).unwrap();
+        assert_eq!(result, "/MY_FOLDER/MY_FILE.TXT");
+
+        // 测试路径包含特殊字符的情况
+        let path = "/folder1/folder2/my_file.txt";
+        let result = path_standardize(path).unwrap();
+        assert_eq!(result, "/FOLDER1/FOLDER2/MY_FILE.TXT");
+
+        // 测试路径包含相对路径的情况
+        let path = "/folder1/./../folder2/my_file.txt";
+        let result = path_standardize(path).unwrap();
+        assert_eq!(result, "/FOLDER2/MY_FILE.TXT");
+
+        // 测试空路径的情况
+        let path = "";
+        let result = path_standardize(path).unwrap();
+        assert_eq!(result, "");
+        println!("[ok]  FileSystem API test_path_standardize")
     }
 
     #[test_case]

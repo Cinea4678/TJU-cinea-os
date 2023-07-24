@@ -36,3 +36,12 @@ pub fn write(id: usize, buf: &[u8]) -> Result<usize, FileError> {
         }
     }
 }
+
+const DEVICE_FILE_SIG: [u8; 5] = [b'C', b'E', b'D', b'V', b'C'];
+
+use byteorder::{ByteOrder, LittleEndian};
+
+/// Read device id from file blocks!
+pub fn device_id(block: &[u8]) -> Result<usize, FileError> {
+    if block.len() < 9 { Err(FileError::NotADeviceError) } else if DEVICE_FILE_SIG != block[0..5] { Err(FileError::NotADeviceError) } else { Ok(LittleEndian::read_u64(&block[5..9]) as usize) }
+}

@@ -1,11 +1,10 @@
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt::Debug;
-use core::ops::Add;
-use core::ptr::slice_from_raw_parts;
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
+use ufmt::uDebug;
 
 use FileError::BadRelatePathError;
 
@@ -128,12 +127,16 @@ pub fn realpath(pathname: &str, current_dir: &str) -> String {
     if pathname.starts_with('/') {
         pathname.into()
     } else {
-        let sep = if current_dir.ends_with('/') { "" } else { "/" };
-        alloc::format!("{}{}{}", current_dir, sep, pathname)
+        path_combine(current_dir, pathname)
     }
 }
 
-#[derive(Debug)]
+pub fn path_combine(path1: &str, path2: &str) -> String {
+    let sep = if path1.ends_with('/') { "" } else { "/" };
+    alloc::format!("{}{}{}", path1, sep, path2)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum FileError {
     NotFoundError,
     /// Root directory cannot be used for some operations.
@@ -141,8 +144,33 @@ pub enum FileError {
     BadRelatePathError,
     /// **Not a Dir Error**, seen in operations must be executed to directories.
     NotADirError,
+    /// **Not a Device Error**, seen in operations must be executed to devices.
+    NotADeviceError,
+    /// **Not a File Error**, seen in operations must be executed to files.
+    NotAFileError,
+    /// **File Busy Error**, seen in operations to files that is mutex while the file is busy.
+    FileBusyError,
     /// Seen in reading or writing device files.
     DeviceIOError,
+    /// Seen because bug of OS
+    OSError,
+}
+
+impl uDebug for FileError {
+    fn fmt<W>(&self, w: &mut ufmt::Formatter<'_, W>) -> Result<(), W::Error>
+        where W: ufmt::uWrite + ?Sized {
+        match self {
+            FileError::NotFoundError => w.write_str("NotFoundError"),
+            FileError::RootDirError => w.write_str("RootDirError"),
+            FileError::BadRelatePathError => w.write_str("BadRelatePathError"),
+            FileError::NotADirError => w.write_str("NotADirError"),
+            FileError::NotADeviceError => w.write_str("NotADeviceError"),
+            FileError::NotAFileError => w.write_str("NotAFileError"),
+            FileError::FileBusyError => w.write_str("FileBusyError"),
+            FileError::DeviceIOError => w.write_str("DeviceIOError"),
+            FileError::OSError => w.write_str("OSError"),
+        }
+    }
 }
 
 bitflags! {
@@ -296,6 +324,14 @@ pub fn process_relative_path(splited_path: &mut Vec<&str>) -> Result<(), FileErr
     Ok(())
 }
 
+pub fn path_standardize(path: &str) -> Result<String, FileError> {
+    let path = String::from(path).to_uppercase();
+    let mut spilted_path: Vec<_> = path.split('/').filter(|x| { x.len() > 0 }).collect();
+    process_relative_path(&mut spilted_path)?;
+    spilted_path.insert(0, "");
+    Ok(spilted_path.join("/"))
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct FileDevice(usize);
 
@@ -325,23 +361,28 @@ impl FileEntry {
         match self {
             FileEntry::Dir(dir) => {
                 // 调用系统调用查询
-                let encoded = postcard::to_allocvec(dir).unwrap();
-
-                let ret = unsafe { syscall!(LIST,encoded.as_ptr() as usize) };
-
-                let result_ptr = ret as *const u64;
-                let result_len = unsafe { *result_ptr };
-                let result_raw = unsafe { &*slice_from_raw_parts(ret.add(1) as *const u8, result_len as usize) };
-
-                // let decoded: Result<Result<Vec<Self>, FileError>, _> = postcard::from_bytes(result_raw);
-                unimplemented!();
-
-
-                // Ok(vec![])
+                let ret: Result<Result<Vec<Self>, FileError>, _> = syscall_with_serdeser!(LIST, dir.path);
+                match ret {
+                    Err(_) => Err(FileError::OSError),
+                    Ok(ret) => ret
+                }
             },
             _ => { Err(FileError::NotADirError) }
         }
     }
+}
+
+pub fn list(path: &str) -> Result<Vec<FileEntry>, FileError> {
+    // 调用系统调用查询
+    let ret: Result<Result<Vec<FileEntry>, FileError>, _> = syscall_with_serdeser!(LIST, path);
+    match ret {
+        Err(_) => Err(FileError::OSError),
+        Ok(ret) => ret
+    }
+}
+
+pub fn open(path: &str) {
+    todo!()
 }
 
 pub fn info(path: &str) -> FileEntry {

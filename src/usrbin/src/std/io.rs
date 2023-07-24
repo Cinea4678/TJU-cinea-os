@@ -59,3 +59,11 @@ macro_rules! print {
 //     };
 // }
 
+#[macro_export]
+macro_rules! printf {
+    ($($arg:tt)*) => ({
+        let args = alloc::vec![$($arg)*];
+        cinea_os_sysapi::syscall_with_serialize!(cinea_os_sysapi::call::PRINTF, &args);
+    })
+}
+

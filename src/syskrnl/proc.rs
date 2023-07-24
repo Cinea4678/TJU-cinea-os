@@ -14,17 +14,20 @@ use x86_64::structures::idt::InterruptStackFrameValue;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, PageTable, PhysFrame};
 use x86_64::VirtAddr;
 
+use cinea_os_sysapi::ExitCode;
+
 use crate::{debugln, syskrnl};
 use crate::syskrnl::allocator::{alloc_pages, fix_page_fault_in_userspace, Locked};
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
+use crate::syskrnl::fs::OpenFileHandle;
 use crate::syskrnl::schedule::ProcessScheduler;
 use crate::syskrnl::schedule::roundroll::RoundRollScheduler;
-use cinea_os_sysapi::ExitCode;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
 const MAX_PROCS: usize = 4;
 const MAX_PROC_SIZE: usize = 10 << 20;
+const MAX_FILE_HANDLES: usize = 64;
 
 pub static PID: AtomicUsize = AtomicUsize::new(0);
 pub static MAX_PID: AtomicUsize = AtomicUsize::new(1);
@@ -48,7 +51,7 @@ pub struct ProcessData {
     env: BTreeMap<String, String>,
     dir: String,
     user: Option<String>,
-    //file_handles: [Option<Box<Resource>>; MAX_FILE_HANDLES],
+    file_handles: Arc<Mutex<BTreeMap<usize, OpenFileHandle>>>,
 }
 
 #[repr(align(8), C)]
@@ -93,12 +96,13 @@ impl ProcessData {
         let env = BTreeMap::new();
         let dir = dir.to_string();
         let user = user.map(String::from);
+        let mut file_handles = Arc::new(Mutex::new(BTreeMap::new()));
         // let mut file_handles = [(); MAX_FILE_HANDLES].map(|_| None);
         // file_handles[0] = Some(Box::new(Resource::Device(Device::Console(Console::new())))); // stdin
         // file_handles[1] = Some(Box::new(Resource::Device(Device::Console(Console::new())))); // stdout
         // file_handles[2] = Some(Box::new(Resource::Device(Device::Console(Console::new())))); // stderr
         // file_handles[3] = Some(Box::new(Resource::Device(Device::Null))); // stdnull
-        Self { env, dir, user /*, file_handles*/ }
+        Self { env, dir, user, file_handles }
     }
 }
 
@@ -267,6 +271,12 @@ pub fn allocator_grow(size: usize) {
     let addr = PROC_HEAP_ADDR.fetch_add(size, Ordering::SeqCst);
     alloc_pages(&mut mapper, addr as u64, size).expect("proc mem grow fail 1545");
     unsafe { allocator.lock().grow(addr, size); };
+}
+
+pub fn file_handles() -> Arc<Mutex<BTreeMap<usize, OpenFileHandle>>> {
+    let table = PROCESS_TABLE.read();
+    let proc = &table[id()];
+    proc.data.file_handles.clone()
 }
 
 /// 进程退出

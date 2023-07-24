@@ -53,9 +53,24 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
             TEST_SERDE => {
                 service::test_serde(arg1)
             }
+            LIST => {
+                service::list(arg1)
+            }
             _ => panic!("unknown syscall id: {}", syscall_id),
         }
     })
+}
+
+#[macro_export]
+macro_rules! syscall_serialized_ret {
+    ($($arg:tt)*) => {
+        if $crate::syskrnl::proc::id()==0 {
+            cinea_os_sysapi::call::syscall_serialized($($arg)*)
+        }else{
+            let allocator = $crate::syskrnl::proc::heap_allocator().clone();
+            cinea_os_sysapi::call::syscall_serialized_for_userspace($($arg)*, |x| unsafe { allocator.lock().alloc(x) })
+        }
+    };
 }
 
 
