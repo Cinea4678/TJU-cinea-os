@@ -1,5 +1,7 @@
 use x86_64::instructions::interrupts;
 
+use cinea_os_sysapi::fs::FileIO;
+pub use datetime::*;
 
 use crate::syskrnl::time::cmos::{RawTime, read_rtc};
 
@@ -7,8 +9,6 @@ pub mod cmos;
 mod pit;
 pub mod tsc;
 mod datetime;
-
-pub use datetime::*;
 
 const TIME_ZONE: u8 = 8;
 
@@ -68,4 +68,19 @@ pub fn init() {
     pit::init();
     cmos::init();
     tsc::init();
+}
+
+pub struct UpTimeDevice;
+
+impl FileIO for UpTimeDevice {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
+        let uptime = uptime();
+        let slice = uptime.to_le_bytes();
+        buf.copy_from_slice(&slice);
+        Ok(8)
+    }
+
+    fn write(&mut self, _buf: &[u8]) -> Result<usize, ()> {
+        Ok(0)
+    }
 }

@@ -1,6 +1,7 @@
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
+use cinea_os_sysapi::fs::FileIO;
 
 pub mod pci;
 pub mod qemu;
@@ -61,4 +62,25 @@ macro_rules! print {
 macro_rules! println {
     () => ($crate::print!("\n"));
     ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+pub struct StdOutDevice;
+
+impl FileIO for StdOutDevice {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
+        Ok(0)
+    }
+
+    fn write(&mut self, buf: &[u8]) -> Result<usize, ()> {
+        match core::str::from_utf8(buf) {
+            Err(_) => {
+                debugln!("log: invalid utf8 string");
+                Err(())
+            }
+            Ok(s) => {
+                _print(format_args!("{}", s));
+                Ok(buf.len())
+            }
+        }
+    }
 }

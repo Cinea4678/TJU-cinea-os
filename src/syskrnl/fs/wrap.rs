@@ -3,18 +3,21 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::ops::Deref;
 use core::sync::atomic::{AtomicUsize, Ordering};
 
-use fatfs::{DirEntry, Read};
+use fatfs::{DirEntry, Read, Seek, SeekFrom, Write};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 use cinea_os_sysapi::fs::{dirname, FileEntry, filename, Metadata, path_combine, realpath};
 use cinea_os_sysapi::fs as fsapi;
+use cinea_os_sysapi::fs::FileError::{NotAFileError, OSError};
 use fsapi::FileError::{self, NotADirError, NotFoundError, RootDirError};
 
+use crate::syskrnl::fs::device::is_device;
 use crate::syskrnl::proc;
-use crate::syskrnl::proc::set_dir;
+use crate::syskrnl::proc::{file_handles, set_dir};
 
 use super::ata::AtaDeviceReader;
 use super::oem::Cp437Converter;
@@ -42,25 +45,24 @@ fn test() {
     println!("DATAFS Type: {:?}", DATA_DISK_FS.lock().fat_type());
 }
 
-fn is_device<IO, TP, OCC>(mut file: fatfs::File<IO, TP, OCC>) -> Option<usize>
-    where IO: fatfs::ReadWriteSeek, TP: fatfs::TimeProvider, OCC: fatfs::OemCpConverter {
-    let mut buf = [0u8; 9];
-    if let Ok(len) = file.read(&mut buf) {
-        if len == 9 {
-            if let Ok(id) = super::device::device_id(&buf) {
-                return Some(id);
-            }
-        }
-    }
-    None
-}
+// fn is_device<IO, TP, OCC>(file: &mut fatfs::File<IO, TP, OCC>) -> Option<usize>
+//     where IO: fatfs::ReadWriteSeek, TP: fatfs::TimeProvider, OCC: fatfs::OemCpConverter {
+//     let mut buf = [0u8; 9];
+//     if let Ok(len) = file.read(&mut buf) {
+//         if len == 9 {
+//             if let Ok(id) = super::device::device_id(&buf) {
+//                 return Some(id);
+//             }
+//         }
+//     }
+//     None
+// }
 
 fn seekpath<'a, IO, TP, OCC>(path: &str, root_dir: fatfs::Dir<'a, IO, TP, OCC>)
                              -> Result<DirEntry<'a, IO, TP, OCC>, FileError>
     where IO: fatfs::ReadWriteSeek, TP: fatfs::TimeProvider, OCC: fatfs::OemCpConverter {
     // Split the path
     let path = realpath(path, proc::dir().as_str());
-    let path = path.to_uppercase();
     let dirname = dirname(path.as_str());
     let filename = filename(path.as_str());
     let mut spilted_path: Vec<_> = dirname.split('/').filter(|x| { x.len() > 0 }).collect();
@@ -82,6 +84,7 @@ fn seekpath<'a, IO, TP, OCC>(path: &str, root_dir: fatfs::Dir<'a, IO, TP, OCC>)
 
     if let Some(target) = dir.iter().find(|x| {
         if let Ok(x) = x {
+            // debugln!("fn:{} ?= {}",x.file_name(), filename);
             x.file_name() == filename
         } else {
             false
@@ -142,56 +145,194 @@ pub fn change_dir(path: &str) -> Result<(), FileError> {
 pub struct OpenFileHandle {
     pub id: usize,
     pub path: String,
+    pub write: bool,
+    pub device: bool,
 }
 
 /// 系统文件表-条目
 pub struct SysyemFileEntry {
     pub path: String,
+    pub share: usize,
     pub mutex: bool,
 }
 
-static USER_FILE_HANDLER_ID: AtomicUsize = AtomicUsize::new(1);
+static USER_FILE_HANDLER_ID: AtomicUsize = AtomicUsize::new(4);
 
 lazy_static! {
     static ref SYSTEM_FILE_TABLE: Mutex<BTreeMap<String,SysyemFileEntry>> = Mutex::new(BTreeMap::new());
 }
 
-/// 打开文件（内核级）
-pub fn open(path: &str, write: bool) -> Result<usize, FileError> {
-    let path = fsapi::path_standardize(path)?;
-    let data = metadata(path.as_str())?;
-    if !data.is_file() { Err(FileError::NotAFileError) } else {
-        let mut lock = SYSTEM_FILE_TABLE.lock();
-        if let Some(sft) = lock.get(path.as_str()) {
-            if sft.mutex { Err(FileError::FileBusyError) } else {
-                let fh = proc::file_handles();
-                let new_id = USER_FILE_HANDLER_ID.fetch_add(1, Ordering::Relaxed);
-                fh.lock().insert(new_id, OpenFileHandle {
-                    id: new_id,
-                    path,
-                });
-                Ok(new_id)
-            }
-        } else {
-            lock.insert(path.clone(), SysyemFileEntry {
-                path: path.clone(),
-                mutex: write,
-            });
+fn register_opened_file(path: String, write: bool, device: bool) -> Result<usize, FileError> {
+    let mut lock = SYSTEM_FILE_TABLE.lock();
+    if let Some(sft) = lock.get_mut(path.as_str()) {
+        if sft.mutex { Err(FileError::FileBusyError) } else {
             let fh = proc::file_handles();
             let new_id = USER_FILE_HANDLER_ID.fetch_add(1, Ordering::Relaxed);
             fh.lock().insert(new_id, OpenFileHandle {
                 id: new_id,
                 path,
+                write,
+                device,
             });
+            sft.share += 1;
             Ok(new_id)
         }
+    } else {
+        lock.insert(path.clone(), SysyemFileEntry {
+            path: path.clone(),
+            share: 1,
+            mutex: write,
+        });
+        let fh = proc::file_handles();
+        let new_id = USER_FILE_HANDLER_ID.fetch_add(1, Ordering::Relaxed);
+        fh.lock().insert(new_id, OpenFileHandle {
+            id: new_id,
+            path,
+            write,
+            device,
+        });
+        Ok(new_id)
+    }
+}
+
+/// 打开文件（内核级）
+pub fn open(path: &str, write: bool) -> Result<usize, FileError> {
+    let path = fsapi::path_standardize(path)?;
+
+    // Device Check
+    if is_device(path.as_str()) { return register_opened_file(path, write, true); }
+
+    let data = metadata(path.as_str())?;
+    if !data.is_file() { Err(FileError::NotAFileError) } else {
+        register_opened_file(path, write, false)
     }
 }
 
 /// 关闭文件（内核）
 pub fn close(id: usize) -> Result<(), FileError> {
+    if id < 4 { return Err(NotFoundError); } // 不允许关闭系统设备
+    let fh = proc::file_handles();
+    let mut lock = fh.lock();
+    if !lock.contains_key(&id) {
+        return Err(NotFoundError);
+    }
+    let path = lock.get(&id).unwrap().path.clone();
+    lock.remove(&id);
     let mut lock = SYSTEM_FILE_TABLE.lock();
-    todo!()
+    let sft = lock.get_mut(path.as_str());
+    if sft.is_none() { return Err(OSError); }
+    let sft = sft.unwrap();
+    if sft.share == 1 {
+        lock.remove(path.as_str());
+        Ok(())
+    } else {
+        sft.share -= 1;
+        Ok(())
+    }
+}
+
+fn write_all_path(path: &str, buf: &[u8]) -> Result<usize, FileError> {
+    let lock = DATA_DISK_FS.lock();
+    let root = lock.root_dir();
+    let file = seekpath(path, root)?;
+    if !file.is_file() { return Err(NotAFileError); }
+    let mut file = file.to_file();
+
+    if file.seek(SeekFrom::Start(0)).is_err() { return Err(OSError); }
+    match file.write_all(buf) {
+        Err(_) => Err(OSError),
+        Ok(()) => Ok(buf.len())
+    }
+}
+
+fn write_all_device(path: &str, buf: &[u8]) -> Result<usize, FileError> {
+    super::device::write(path, buf)
+}
+
+/// 全部写
+/// FIXME：暂不提供部分写、指定指针等功能
+pub fn write_all(id: usize, buf: &[u8]) -> Result<usize, FileError> {
+    let fh = file_handles();
+    let fh_lock = fh.lock();
+    if fh_lock.contains_key(&id) {
+        let handle = fh_lock.get(&id).unwrap();
+        if handle.write {
+            if handle.device {
+                write_all_device(handle.path.as_str(), buf)
+            } else {
+                write_all_path(handle.path.as_str(), buf)
+            }
+        } else { Err(FileError::OpenMethodError) }
+    } else {
+        Err(NotFoundError)
+    }
+}
+
+/// 全部写（必须已经打开文件）
+/// FIXME：暂不提供部分写、指定指针等功能
+pub fn write_with_path(path: &str, buf: &[u8]) -> Result<usize, FileError> {
+    let path = fsapi::path_standardize(path)?;
+    let fh = file_handles();
+    let fh_lock = fh.lock();
+    if let Some(handle) = fh_lock.iter().find(|x| { (*x).1.path == path }) {
+        if handle.1.write {
+            if handle.1.device {
+                write_all_device(path.as_str(), buf)
+            } else {
+                write_all_path(path.as_str(), buf)
+            }
+        } else { Err(FileError::OpenMethodError) }
+    } else {
+        Err(NotFoundError)
+    }
+}
+
+fn read_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
+    let lock = DATA_DISK_FS.lock();
+    let root = lock.root_dir();
+    let file = seekpath(path, root)?;
+    if !file.is_file() { return Err(NotAFileError); }
+    let mut file = file.to_file();
+
+    if file.seek(SeekFrom::Start(0)).is_err() { return Err(OSError); }
+    match file.read(buf) {
+        Err(_) => Err(OSError),
+        Ok(len) => Ok(len)
+    }
+}
+
+fn read_device(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
+    super::device::read(path, buf)
+}
+
+pub fn read(id: usize, buf: &mut [u8]) -> Result<usize, FileError> {
+    let fh = file_handles();
+    let fh_lock = fh.lock();
+    if fh_lock.contains_key(&id) {
+        let handle = fh_lock.get(&id).unwrap();
+        if handle.device {
+            read_device(handle.path.as_str(), buf)
+        } else {
+            read_path(handle.path.as_str(), buf)
+        }
+    } else {
+        Err(NotFoundError)
+    }
+}
+
+pub fn read_with_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
+    let path = fsapi::path_standardize(path)?;
+    let fh = file_handles();
+    let fh_lock = fh.lock();
+    if let Some(handle) = fh_lock.iter().find(|x| { (*x).1.path == path }) {
+        if handle.1.device {
+            read_device(path.as_str(), buf)
+        } else {
+            read_path(path.as_str(), buf)
+        }
+    } else {
+        Err(NotFoundError)
+    }
 }
 
 #[cfg(test)]

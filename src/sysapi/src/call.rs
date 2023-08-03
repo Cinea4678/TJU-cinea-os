@@ -43,10 +43,6 @@ use serde::{Deserialize, Serialize};
 /// exit the process
 pub const EXIT: usize = 0x1;
 pub const SPAWN: usize = 0x2;
-pub const READ: usize = 0x3;
-pub const WRITE: usize = 0x4;
-pub const OPEN: usize = 0x5;
-pub const CLOSE: usize = 0x6;
 pub const INFO: usize = 0x7;
 pub const DUP: usize = 0x8;
 pub const DELETE: usize = 0x9;
@@ -70,6 +66,12 @@ pub const TEST_SERDE: usize = 0x12;
 ///
 /// *Not recommend for mannual use.*
 pub const LIST: usize = 0x20;
+pub const OPEN: usize = 0x21;
+pub const CLOSE: usize = 0x22;
+pub const WRITE_ALL: usize = 0x23;
+pub const READ: usize = 0x24;
+pub const WRITE_PATH: usize = 0x25;
+pub const READ_PATH: usize = 0x26;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SysCallResult {

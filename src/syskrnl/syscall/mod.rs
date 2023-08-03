@@ -1,8 +1,6 @@
-
 use x86_64::instructions::interrupts;
 
 use cinea_os_sysapi::call::*;
-
 use cinea_os_sysapi::ExitCode;
 
 /// 系统调用
@@ -17,10 +15,6 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
         match syscall_id {
             EXIT => service::exit(ExitCode::from(arg1)) as usize,
             SPAWN => service::spawn(arg1, arg2, arg3, arg4) as usize,
-            READ => unimplemented!(),
-            WRITE => unimplemented!(),
-            OPEN => unimplemented!(),
-            CLOSE => unimplemented!(),
             INFO => unimplemented!(),
             DUP => unimplemented!(),
             DELETE => unimplemented!(),
@@ -56,6 +50,21 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
             LIST => {
                 service::list(arg1)
             }
+            OPEN => {
+                service::open(arg1)
+            }
+            WRITE_ALL => {
+                service::write_all(arg1)
+            }
+            READ => {
+                service::read(arg1)
+            }
+            WRITE_PATH => {
+                service::write_path(arg1)
+            }
+            READ_PATH => {
+                service::read_path(arg1)
+            }
             _ => panic!("unknown syscall id: {}", syscall_id),
         }
     })
@@ -73,11 +82,21 @@ macro_rules! syscall_serialized_ret {
     };
 }
 
+#[macro_export]
+macro_rules! syscall_deserialize {
+    ($ptr:expr) => {{
+        use cinea_os_sysapi::call::{syscall_deserialized, syscall_deserialized_prepare};
+        let vec_data = syscall_deserialized_prepare($ptr);
+        syscall_deserialized(&vec_data).unwrap()
+    }};
+}
+
 
 #[cfg(test)]
 mod test {
     use alloc::vec::Vec;
     use core::slice;
+
     use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Serialize, Deserialize, Eq, PartialEq)]

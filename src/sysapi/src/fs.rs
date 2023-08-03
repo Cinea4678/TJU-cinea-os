@@ -8,7 +8,7 @@ use ufmt::uDebug;
 
 use FileError::BadRelatePathError;
 
-use crate::call::LIST;
+use crate::call::*;
 use crate::syscall;
 use crate::time::{Date, DateTime};
 
@@ -136,23 +136,27 @@ pub fn path_combine(path1: &str, path2: &str) -> String {
     alloc::format!("{}{}{}", path1, sep, path2)
 }
 
+/// Error types that can occur when interacting with the filesystem.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum FileError {
     NotFoundError,
-    /// Root directory cannot be used for some operations.
+    /// Returned when trying to operate on the root directory in some cases.
     RootDirError,
+    /// Returned when a relative path cannot be resolved.
     BadRelatePathError,
-    /// **Not a Dir Error**, seen in operations must be executed to directories.
+    /// Returned when trying to operate on a directory as if it were a file.
     NotADirError,
-    /// **Not a Device Error**, seen in operations must be executed to devices.
+    /// Returned when trying to operate on a device node as if it were a regular file.
     NotADeviceError,
-    /// **Not a File Error**, seen in operations must be executed to files.
+    /// Returned when trying to operate on a file as if it were a directory.
     NotAFileError,
-    /// **File Busy Error**, seen in operations to files that is mutex while the file is busy.
+    /// Returned when trying to open a file that is already open.
     FileBusyError,
-    /// Seen in reading or writing device files.
+    /// Returned when trying to do something different to the open method.
+    OpenMethodError,
+    /// Returned when a device I/O error occurs.
     DeviceIOError,
-    /// Seen because bug of OS
+    /// Returned for miscellaneous OS errors.
     OSError,
 }
 
@@ -167,6 +171,7 @@ impl uDebug for FileError {
             FileError::NotADeviceError => w.write_str("NotADeviceError"),
             FileError::NotAFileError => w.write_str("NotAFileError"),
             FileError::FileBusyError => w.write_str("FileBusyError"),
+            FileError::OpenMethodError => w.write_str("OpenMethodError"),
             FileError::DeviceIOError => w.write_str("DeviceIOError"),
             FileError::OSError => w.write_str("OSError"),
         }
@@ -325,7 +330,7 @@ pub fn process_relative_path(splited_path: &mut Vec<&str>) -> Result<(), FileErr
 }
 
 pub fn path_standardize(path: &str) -> Result<String, FileError> {
-    let path = String::from(path).to_uppercase();
+    let path = String::from(path);
     let mut spilted_path: Vec<_> = path.split('/').filter(|x| { x.len() > 0 }).collect();
     process_relative_path(&mut spilted_path)?;
     spilted_path.insert(0, "");
@@ -337,12 +342,19 @@ pub struct FileDevice(usize);
 
 impl FileDevice {}
 
+/// Filesystem entry representing a file, directory, or device node.
 #[derive(Debug, Serialize, Deserialize)]
 pub enum FileEntry {
+    /// Entry for a directory.
     Dir(Metadata),
+
+    /// Entry for a regular file.
     File(Metadata),
+
+    /// Entry for a device node.
     Device(FileDevice),
 }
+
 
 impl FileEntry {
     pub fn new_dir(metadata: Metadata) -> Self {
@@ -381,8 +393,48 @@ pub fn list(path: &str) -> Result<Vec<FileEntry>, FileError> {
     }
 }
 
-pub fn open(path: &str) {
-    todo!()
+pub fn open(path: &str, write: bool) -> Result<usize, FileError> {
+    let ret: Result<Result<usize, FileError>, _> = syscall_with_serdeser!(OPEN, (String::from(path), write));
+    match ret {
+        Err(_) => Err(FileError::OSError),
+        Ok(ret) => ret
+    }
+}
+
+pub fn write_all(handle: usize, buf: &[u8]) -> Result<usize, FileError> {
+    let ret: Result<Result<usize, FileError>, _> = syscall_with_serdeser!(WRITE_ALL, (handle, Vec::from(buf)));
+    match ret {
+        Err(_) => Err(FileError::OSError),
+        Ok(ret) => ret
+    }
+}
+
+pub fn read(handle: usize, buf: &mut [u8]) -> Result<usize, FileError> {
+    let ptr = buf.as_ptr() as usize;
+    let len = buf.len();
+    let ret: Result<Result<usize, FileError>, _> = syscall_with_serdeser!(READ, (handle, ptr, len));
+    match ret {
+        Err(_) => Err(FileError::OSError),
+        Ok(ret) => ret
+    }
+}
+
+pub fn write_path(path: &str, buf: &[u8]) -> Result<usize, FileError> {
+    let ret: Result<Result<usize, FileError>, _> = syscall_with_serdeser!(WRITE_PATH, (String::from(path), Vec::from(buf)));
+    match ret {
+        Err(_) => Err(FileError::OSError),
+        Ok(ret) => ret
+    }
+}
+
+pub fn read_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
+    let ptr = buf.as_ptr() as usize;
+    let len = buf.len();
+    let ret: Result<Result<usize, FileError>, _> = syscall_with_serdeser!(READ_PATH, (String::from(path), ptr, len));
+    match ret {
+        Err(_) => Err(FileError::OSError),
+        Ok(ret) => ret
+    }
 }
 
 pub fn info(path: &str) -> FileEntry {

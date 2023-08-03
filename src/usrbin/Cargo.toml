@@ -9,5 +9,6 @@ edition = "2021"
 [dependencies]
 cinea-os-sysapi = { version = "0.1.0", path = "../sysapi" }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+ryu = "1.0.15"
 spin = "0.9.8"
 ufmt = "0.2.0"

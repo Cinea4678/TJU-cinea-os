@@ -1,9 +1,13 @@
 use alloc::string::String;
+use alloc::vec::Vec;
+use core::mem::forget;
+use core::ptr::slice_from_raw_parts_mut;
 use core::sync::atomic::Ordering;
-use crate::{debugln, print, println, syscall_serialized_ret, syskrnl};
-use crate::syskrnl::proc::Process;
+
 use cinea_os_sysapi::ExitCode;
 
+use crate::{debugln, print, println, syscall_deserialize, syscall_serialized_ret, syskrnl};
+use crate::syskrnl::proc::Process;
 
 pub fn exit(code: ExitCode) -> ExitCode {
     syskrnl::proc::exit();
@@ -79,8 +83,9 @@ pub fn restart_schedule() {
     syskrnl::interrupts::NO_SCHEDULE.store(false, Ordering::SeqCst);
 }
 
+#[doc(hidden)]
 pub fn test_serde(ptr: usize) -> usize {
-    use cinea_os_sysapi::call::{syscall_deserialized, syscall_deserialized_prepare, _TestSerde};
+    use cinea_os_sysapi::call::{_TestSerde, syscall_deserialized, syscall_deserialized_prepare};
 
     let vec_data = syscall_deserialized_prepare(ptr);
     let obj: _TestSerde = syscall_deserialized(&vec_data).unwrap();
@@ -92,16 +97,49 @@ pub fn test_serde(ptr: usize) -> usize {
     };
 
     println!("以下是内核通过系统调用返回给用户进程的数据：\n{:?}", obj_to_send);
-    let ptr_to_send = syscall_serialized_ret!(&obj_to_send);
+    let ptr_back = syscall_serialized_ret!(&obj_to_send);
 
-    ptr_to_send
+    ptr_back
 }
 
 pub fn list(ptr: usize) -> usize {
-    use cinea_os_sysapi::call::{syscall_deserialized, syscall_deserialized_prepare};
-    let vec_data = syscall_deserialized_prepare(ptr);
-    let obj: String = syscall_deserialized(&vec_data).unwrap();
+    let obj: String = syscall_deserialize!(ptr);
 
-    let ptr_to_send = syscall_serialized_ret!(&syskrnl::fs::list(obj.as_str()));
-    ptr_to_send
+    let ptr_back = syscall_serialized_ret!(&syskrnl::fs::list(obj.as_str()));
+    ptr_back
+}
+
+pub fn open(ptr: usize) -> usize {
+    let obj: (String, bool) = syscall_deserialize!(ptr);
+
+    let ptr_back = syscall_serialized_ret!(&syskrnl::fs::open(obj.0.as_str(), obj.1));
+    ptr_back
+}
+
+pub fn write_all(ptr: usize) -> usize {
+    let obj: (usize, Vec<u8>) = syscall_deserialize!(ptr);
+    let ptr_back = syscall_serialized_ret!(&syskrnl::fs::write_all(obj.0, obj.1.as_slice()));
+    ptr_back
+}
+
+pub fn read(ptr: usize) -> usize {
+    // 这个有点复杂了
+    let obj: (usize, usize, usize) = syscall_deserialize!(ptr); // 参数1：句柄，2：地址，3：长度
+    let slice = unsafe { &mut *slice_from_raw_parts_mut(obj.1 as *mut u8, obj.2) };
+    let ptr_back = syscall_serialized_ret!(&syskrnl::fs::read(obj.0, slice));
+    ptr_back
+}
+
+pub fn write_path(ptr: usize) -> usize {
+    let obj: (String, Vec<u8>) = syscall_deserialize!(ptr);
+    let ptr_back = syscall_serialized_ret!(&syskrnl::fs::write_with_path(obj.0.as_str(), obj.1.as_slice()));
+    ptr_back
+}
+
+pub fn read_path(ptr: usize) -> usize {
+    // 这个有点复杂了
+    let obj: (String, usize, usize) = syscall_deserialize!(ptr); // 参数1：文件路径，2：地址，3：长度
+    let slice = unsafe { &mut *slice_from_raw_parts_mut(obj.1 as *mut u8, obj.2) };
+    let ptr_back = syscall_serialized_ret!(&syskrnl::fs::read_with_path(obj.0.as_str(), slice));
+    ptr_back
 }

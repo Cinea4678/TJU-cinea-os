@@ -14,7 +14,7 @@ cinea-os-sysapi = { version = "0.1.0", path = "src/sysapi" }
 conquer-once = { version = "0.4.0", default-features = false }
 crossbeam = { version = "0.8.2", default-features = false, features = ["alloc", "crossbeam-deque", "crossbeam-queue"] }
 embedded-graphics = "0.8.0"
-fatfs = { git = "https://github.com/rafalh/rust-fatfs.git", default-features = false, features = ["alloc"] }
+fatfs = { git = "https://github.com/rafalh/rust-fatfs.git", default-features = false, features = ["alloc", "lfn"] }
 futures-util = { version = "0.3.28", default-features = false, features = ["alloc"] }
 lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 linked_list_allocator = "0.10.5"
