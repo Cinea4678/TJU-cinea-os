@@ -1,6 +1,5 @@
 use alloc::format;
 use core::arch::asm;
-
 use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use lazy_static::lazy_static;
@@ -284,4 +283,35 @@ extern "sysv64" fn save_context(stack_frame: &mut InterruptStackFrame, regs: &mu
     syskrnl::proc::set_registers(*regs);
 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index(0x81) as u8) };
+}
+
+wrap!(wait => wrapped_wait);
+
+extern "sysv64" fn wait(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+    // The registers order follow the System V ABI convention
+    let n = regs.rax;
+    let arg1 = regs.rdi;
+    let arg2 = regs.rsi;
+    let arg3 = regs.rdx;
+    let arg4 = regs.r8;
+
+    // 保存现场
+    syskrnl::proc::set_stack_frame(**stack_frame);
+    syskrnl::proc::set_registers(*regs);
+
+    let next_pid = syskrnl::event::dispatcher(n, arg1, arg2, arg3, arg4);
+
+    // 恢复现场
+    syskrnl::proc::set_id(next_pid);
+
+    let sf = syskrnl::proc::stack_frame();
+    unsafe {
+        //stack_frame.as_mut().write(sf);
+        let (_, flags) = Cr3::read();
+        Cr3::write(syskrnl::proc::page_table_frame(), flags);
+        core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
+        core::ptr::write_volatile(regs, syskrnl::proc::registers());
+    }
+
+    unsafe { pics::PICS.lock().notify_end_of_interrupt(0x82) };
 }

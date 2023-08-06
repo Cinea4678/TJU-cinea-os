@@ -16,5 +16,5 @@ pub mod clock;
 pub mod time;
 pub mod proc;
 pub mod schedule;
-pub mod waker;
 pub mod fs;
+pub mod event;

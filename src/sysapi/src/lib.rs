@@ -41,6 +41,7 @@ pub mod syscall;
 pub mod allocator;
 pub mod fs;
 pub mod time;
+pub mod event;
 
 /// 进程退出代码
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
