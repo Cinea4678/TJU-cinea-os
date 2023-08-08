@@ -5,6 +5,7 @@ use core::ptr::slice_from_raw_parts_mut;
 use core::sync::atomic::Ordering;
 
 use cinea_os_sysapi::ExitCode;
+use cinea_os_sysapi::syscall::PanicInfo;
 
 use crate::{debugln, print, println, syscall_deserialize, syscall_serialized_ret, syskrnl};
 use crate::syskrnl::proc::Process;
@@ -142,4 +143,11 @@ pub fn read_path(ptr: usize) -> usize {
     let slice = unsafe { &mut *slice_from_raw_parts_mut(obj.1 as *mut u8, obj.2) };
     let ptr_back = syscall_serialized_ret!(&syskrnl::fs::read_with_path(obj.0.as_str(), slice));
     ptr_back
+}
+
+pub fn panic(ptr: usize) -> usize {
+    let obj: PanicInfo = syscall_deserialize!(ptr);
+    println!("{:?}", obj);
+    panic!("User-Space APP asked to panic. ACCR");
+    0
 }

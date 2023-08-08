@@ -1,7 +1,9 @@
+use cinea_os_sysapi::fs::FileIO;
 use x86_64::instructions::interrupts;
 
-use cinea_os_sysapi::fs::FileIO;
 pub use datetime::*;
+pub use pit::PIT_PER_SECOND as TICKS_PER_SECOND;
+pub use sleep::{add_sleep, check_wakeup};
 
 use crate::syskrnl::time::cmos::{RawTime, read_rtc};
 
@@ -9,6 +11,7 @@ pub mod cmos;
 mod pit;
 pub mod tsc;
 mod datetime;
+mod sleep;
 
 const TIME_ZONE: u8 = 8;
 
@@ -68,6 +71,7 @@ pub fn init() {
     pit::init();
     cmos::init();
     tsc::init();
+    sleep::init();
 }
 
 pub struct UpTimeDevice;

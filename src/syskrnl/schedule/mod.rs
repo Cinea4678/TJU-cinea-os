@@ -21,6 +21,6 @@ pub trait ProcessScheduler: Send {
     fn wait(&mut self)->usize;
 
     /// 进程唤醒
-    fn wakeup(&mut self, process:Process)->usize;
+    fn wakeup(&mut self, process:usize)->usize;
 }
 

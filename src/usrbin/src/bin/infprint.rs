@@ -17,15 +17,22 @@ static ALLOCATOR: allocator::UserProcAllocator = allocator::UserProcAllocator;
 
 fn main(args: &[&str]) {
     let mut strout = StringWriter::new();
-    if args.len() > 0 {
+    if args.len() > 1 {
         let mut num = 0;
         let output = String::from(args[0]);
+        let sleep_time = usize::from_str_radix(args[1], 10).unwrap();
+        uwrite!(
+            strout,
+            "{}, 我的sleepTime是{}\n",
+            output.as_str(),
+            sleep_time
+        )
+        .unwrap();
         loop {
             uwrite!(strout, "{}, 我已经输出了{}次\n", output.as_str(), num).unwrap();
             log(strout.value().as_bytes());
             strout.clear();
-            for _ in 0..10000000 { // 土法sleep
-            }
+            cinea_os_sysapi::event::sleep(sleep_time);
             num += 1;
         }
     }

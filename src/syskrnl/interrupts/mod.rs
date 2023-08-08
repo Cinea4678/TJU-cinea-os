@@ -11,6 +11,7 @@ use crate::{debugln, println, syskrnl};
 use crate::syskrnl::gui::panic;
 use crate::syskrnl::io::qemu::qemu_print;
 use crate::syskrnl::proc::{Registers, SCHEDULER};
+use crate::syskrnl::time;
 use crate::syskrnl::time::ticks;
 
 pub mod pics;
@@ -50,6 +51,10 @@ lazy_static! {
             // 特殊调用接口：保存进程状态
             idt[0x81]
                 .set_handler_fn(core::mem::transmute(wrapped_save_context as *mut fn()))
+                .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
+            // 特殊调用接口：进程等待事件
+            idt[0x82]
+                .set_handler_fn(core::mem::transmute(wrapped_proc_wait as *mut fn()))
                 .set_privilege_level(x86_64::PrivilegeLevel::Ring3);
         }
         idt[interrupt_index(1) as usize].set_handler_fn(irq1_handler);
@@ -133,7 +138,6 @@ extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: Interrup
 
 /// 页错异常处理函数
 extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, _error_code: PageFaultErrorCode) {
-    
     use x86_64::registers::control::Cr2;
 
     qemu_print(format!("EXCEPTION: PAGE FAULT\n").as_str());
@@ -226,6 +230,16 @@ extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(0x80) };
 }
 
+unsafe fn switch_context_to(pid: usize, stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+    syskrnl::proc::set_id(pid);
+    let sf = syskrnl::proc::stack_frame();
+    //stack_frame.as_mut().write(sf);
+    let (_, flags) = Cr3::read();
+    Cr3::write(syskrnl::proc::page_table_frame(), flags);
+    core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
+    core::ptr::write_volatile(regs, syskrnl::proc::registers());
+}
+
 pub static SCHEDULE: AtomicBool = AtomicBool::new(false);
 static LAST_SCHEDULE: AtomicUsize = AtomicUsize::new(0);
 pub static NO_SCHEDULE: AtomicBool = AtomicBool::new(false);
@@ -236,6 +250,10 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
     // 先把时钟发过去
     let handlers = IRQ_HANDLERS.lock();
     handlers[0]();
+
+    if let Some(pid) = time::check_wakeup() {
+        SCHEDULER.lock().wakeup(pid);
+    }
 
     if SCHEDULE.load(Ordering::SeqCst) && ticks() - LAST_SCHEDULE.load(Ordering::SeqCst) > 10 {
         let mut schedule = || {
@@ -255,17 +273,14 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
                 syskrnl::proc::set_stack_frame(**stack_frame);
                 syskrnl::proc::set_registers(*regs);
 
-                syskrnl::proc::set_id(next_pid);
-
-                let sf = syskrnl::proc::stack_frame();
-                unsafe {
-                    //stack_frame.as_mut().write(sf);
-                    let (_, flags) = Cr3::read();
-                    Cr3::write(syskrnl::proc::page_table_frame(), flags);
-                    core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
-                    core::ptr::write_volatile(regs, syskrnl::proc::registers());
-                }
+                unsafe { switch_context_to(next_pid, stack_frame, regs); }
             }
+
+            let lock = syskrnl::event::EVENT_DATA.lock();
+            if lock.contains_key(&next_pid) {
+                regs.rax = *lock.get(&next_pid).unwrap();
+            }
+            drop(lock);
 
             LAST_SCHEDULE.store(ticks(), Ordering::SeqCst);
         };
@@ -285,9 +300,9 @@ extern "sysv64" fn save_context(stack_frame: &mut InterruptStackFrame, regs: &mu
     unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index(0x81) as u8) };
 }
 
-wrap!(wait => wrapped_wait);
+wrap!(proc_wait => wrapped_proc_wait);
 
-extern "sysv64" fn wait(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
+extern "sysv64" fn proc_wait(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
     // The registers order follow the System V ABI convention
     let n = regs.rax;
     let arg1 = regs.rdi;
@@ -302,16 +317,7 @@ extern "sysv64" fn wait(stack_frame: &mut InterruptStackFrame, regs: &mut Regist
     let next_pid = syskrnl::event::dispatcher(n, arg1, arg2, arg3, arg4);
 
     // 恢复现场
-    syskrnl::proc::set_id(next_pid);
-
-    let sf = syskrnl::proc::stack_frame();
-    unsafe {
-        //stack_frame.as_mut().write(sf);
-        let (_, flags) = Cr3::read();
-        Cr3::write(syskrnl::proc::page_table_frame(), flags);
-        core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
-        core::ptr::write_volatile(regs, syskrnl::proc::registers());
-    }
+    unsafe { switch_context_to(next_pid, stack_frame, regs); }
 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(0x82) };
 }

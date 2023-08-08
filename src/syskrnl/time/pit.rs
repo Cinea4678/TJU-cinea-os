@@ -8,6 +8,8 @@ pub const PIT_FREQUENCY: f64 = 3_579_545.0 / 3.0; // 1_193_181.666 Hz
 const PIT_DIVIDER: usize = 1193;
 /// 两次PIT中断之间的时间间隔
 const PIT_INTERVAL: f64 = (PIT_DIVIDER as f64) / PIT_FREQUENCY;
+/// 每秒Tick数
+pub const PIT_PER_SECOND: usize = 1000;
 
 static PIT_TICKS: AtomicUsize = AtomicUsize::new(0);
 

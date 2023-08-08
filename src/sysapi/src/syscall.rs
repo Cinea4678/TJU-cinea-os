@@ -53,9 +53,12 @@
 //! The `free` function takes a pointer, a size, and an alignment, and frees the allocated memory.
 //! The `stop_schedule` function stops scheduling for a while, and the `restart_schedule` function resumes scheduling.
 
+use alloc::format;
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::arch::asm;
 
-use alloc::vec::Vec;
+use serde::{Deserialize, Serialize};
 
 use crate::call::*;
 use crate::ExitCode;
@@ -108,8 +111,36 @@ pub fn spawn(number: usize, args: &[&str]) -> Result<(), ExitCode> {
     }
 }
 
-pub fn panic() -> usize {
-    unsafe { syscall!(PANIC) }
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PanicInfoLocation {
+    file: String,
+    line: u32,
+    col: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PanicInfo {
+    message: String,
+    location: PanicInfoLocation,
+}
+
+pub fn panic(raw_info: &core::panic::PanicInfo) -> usize {
+    log(b"An exception in UserSpace occurred!\n");
+    let mut location = PanicInfoLocation {
+        file: String::new(),
+        line: 0,
+        col: 0,
+    };
+    if let Some(raw_location) = raw_info.location() {
+        location.file = String::from(raw_location.file());
+        location.line = raw_location.line();
+        location.col = raw_location.column();
+    }
+    let info = PanicInfo {
+        message: String::from(raw_info.message().unwrap_or(&format_args!("")).as_str().unwrap_or("")),
+        location,
+    };
+    unsafe { syscall!(PANIC, syscall_serialized(&info)) }
 }
 
 pub fn alloc(size: usize, align: usize) -> usize {

@@ -34,7 +34,7 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
                 0
             }
             PANIC => {
-                panic!("User space program asked to panic. ACCR.");
+                service::panic(arg1)
             }
             NO_SCHE => {
                 service::stop_schedule();

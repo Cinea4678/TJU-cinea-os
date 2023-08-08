@@ -31,17 +31,20 @@
 #![feature(atomic_bool_fetch_not)]
 #![feature(naked_functions)]
 #![feature(vec_into_raw_parts)]
+#![feature(panic_info_message)]
 
 extern crate alloc;
 
 #[macro_use]
 pub mod call;
 
-pub mod syscall;
+#[macro_use]
+pub mod event;
+
 pub mod allocator;
 pub mod fs;
+pub mod syscall;
 pub mod time;
-pub mod event;
 
 /// 进程退出代码
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -82,8 +85,7 @@ macro_rules! entry_point {
             // use alloc::format;
             // $crate::sysapi::syscall::log(format!("An exception occurred!\n{}", info).as_bytes());
 
-            $crate::syscall::log(b"An exception in UserSpace occurred!\n");
-            $crate::syscall::panic();
+            $crate::syscall::panic(info);
             loop {}
         }
 
@@ -99,21 +101,27 @@ macro_rules! entry_point {
 
 #[macro_export]
 macro_rules! syscall {
-    ($n:expr) => (
-        $crate::syscall::syscall0(
-            $n as usize));
-    ($n:expr, $a1:expr) => (
-        $crate::syscall::syscall1(
-            $n as usize, $a1 as usize));
-    ($n:expr, $a1:expr, $a2:expr) => (
-        $crate::syscall::syscall2(
-            $n as usize, $a1 as usize, $a2 as usize));
-    ($n:expr, $a1:expr, $a2:expr, $a3:expr) => (
-        $crate::syscall::syscall3(
-            $n as usize, $a1 as usize, $a2 as usize, $a3 as usize));
-    ($n:expr, $a1:expr, $a2:expr, $a3:expr, $a4:expr) => (
+    ($n:expr) => {
+        $crate::syscall::syscall0($n as usize)
+    };
+    ($n:expr, $a1:expr) => {
+        $crate::syscall::syscall1($n as usize, $a1 as usize)
+    };
+    ($n:expr, $a1:expr, $a2:expr) => {
+        $crate::syscall::syscall2($n as usize, $a1 as usize, $a2 as usize)
+    };
+    ($n:expr, $a1:expr, $a2:expr, $a3:expr) => {
+        $crate::syscall::syscall3($n as usize, $a1 as usize, $a2 as usize, $a3 as usize)
+    };
+    ($n:expr, $a1:expr, $a2:expr, $a3:expr, $a4:expr) => {
         $crate::syscall::syscall4(
-            $n as usize, $a1 as usize, $a2 as usize, $a3 as usize, $a4 as usize));
+            $n as usize,
+            $a1 as usize,
+            $a2 as usize,
+            $a3 as usize,
+            $a4 as usize,
+        )
+    };
 }
 
 #[cfg(test)]

@@ -152,8 +152,8 @@ impl ProcessScheduler for RoundRollScheduler {
         self.step()
     }
 
-    fn wakeup(&mut self, process: Process) -> usize {
-        if let Some(node) = self.map.get(&process.id) {
+    fn wakeup(&mut self, process: usize) -> usize {
+        if let Some(node) = self.map.get(&process) {
             self.table[*node].skip = false;
         }
         self.now()
