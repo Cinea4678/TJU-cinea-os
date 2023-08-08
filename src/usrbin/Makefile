@@ -31,7 +31,11 @@ infprint: src/bin/infprint.rs
 	$(RUSTC) $(RUSTFLAGS) --bin infprint
 	touch target/infprint
 
-bin: hello nothing shell infprint
+echo: src/bin/infprint.rs
+	$(RUSTC) $(RUSTFLAGS) --bin echo
+	touch target/echo
+
+bin: hello nothing shell infprint echo
 	basename -s .rs src/bin/*.rs | xargs -I {} \
 		cp target/x86_64-cinea_os/$(mode)/{} ../../dsk/bin/{}
 	if [ "$(STRIP)" = "true" ] && [ `arch` = "x86_64" ]; then \
