@@ -9,6 +9,8 @@ pub fn sleep(million_seconds: usize) {
     unsafe { event_call!(SLEEP_WAKEUP, million_seconds); }
 }
 
+pub fn getch()->char{unsafe {char::from_u32_unchecked(event_call!(KEYBOARD_INPUT) as u32)}}
+
 #[macro_export]
 macro_rules! event_call {
     ($n:expr) => (

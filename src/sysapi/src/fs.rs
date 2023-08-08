@@ -437,6 +437,6 @@ pub fn read_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
     }
 }
 
-pub fn info(path: &str) -> FileEntry {
+pub fn info(_path: &str) -> FileEntry {
     todo!()
 }

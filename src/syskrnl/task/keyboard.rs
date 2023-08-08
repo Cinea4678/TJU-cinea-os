@@ -8,8 +8,10 @@ use futures_util::task::AtomicWaker;
 use pc_keyboard::{DecodedKey, HandleControl, Keyboard, layouts, ScancodeSet1};
 use x86::io::inb;
 use x86_64::instructions::interrupts;
+use cinea_os_sysapi::event::*;
 
 use crate::{debug, print, syskrnl};
+use crate::syskrnl::event;
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -73,11 +75,12 @@ impl Stream for ScancodeStream {
 
 pub async fn print_keypresses(){
     let mut scancodes = ScancodeStream::new();
-    let mut keyboard = Keyboard::new(layouts::Us104Key, ScancodeSet1, HandleControl::Ignore);
+    let mut keyboard = Keyboard::new(layouts::Us104Key, ScancodeSet1, HandleControl::MapLettersToUnicode);
 
     while let Some(scancode) = scancodes.next().await{
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode){
             if let Some(key) = keyboard.process_keyevent(key_event) {
+                debugln!("{:?}",key);
                 match key {
                     DecodedKey::Unicode(character) => {key_event_handler(character)}
                     DecodedKey::RawKey(key) => {debug!("undk:{:?}",key)}
@@ -88,5 +91,5 @@ pub async fn print_keypresses(){
 }
 
 fn key_event_handler(ch:char){
-    print!("{}",ch);
+    event::EVENT_QUEUE.lock().wakeup_with_ret(KEYBOARD_INPUT, ch as usize);
 }

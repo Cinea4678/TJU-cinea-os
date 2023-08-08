@@ -1,7 +1,5 @@
-use alloc::string::ToString;
 use serde::{Deserialize, Serialize};
 use ufmt::uDebug;
-use crate::syscall::log;
 
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Serialize, Deserialize)]
 pub struct Date {

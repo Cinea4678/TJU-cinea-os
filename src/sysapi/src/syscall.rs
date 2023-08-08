@@ -53,7 +53,6 @@
 //! The `free` function takes a pointer, a size, and an alignment, and frees the allocated memory.
 //! The `stop_schedule` function stops scheduling for a while, and the `restart_schedule` function resumes scheduling.
 
-use alloc::format;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::arch::asm;
