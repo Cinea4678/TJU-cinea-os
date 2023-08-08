@@ -1,6 +1,6 @@
 use alloc::collections::{BTreeMap, VecDeque};
-use alloc::vec::Vec;
-use core::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
@@ -68,7 +68,7 @@ impl EventQueue {
     ///
     /// 返回值是下一个进程的pid
     pub fn wakeup(&mut self, event: EventType) -> Option<usize> {
-        if let Some(mut queue) = self.queue.get_mut(&event) {
+        if let Some(queue) = self.queue.get_mut(&event) {
             if queue.len() == 0 { None } else {
                 if let Some(fp) = queue.iter().position(|x| *x == self.front_proc) {
                     queue.remove(fp).unwrap();

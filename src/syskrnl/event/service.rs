@@ -1,9 +1,13 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
+use cinea_os_sysapi::event::KEYBOARD_INPUT;
 
-use cinea_os_sysapi::event::*;
 
 use crate::syskrnl;
 use crate::syskrnl::event::EVENT_QUEUE;
+
+pub fn keyboard_input() -> usize {
+    EVENT_QUEUE.lock().wait_for(KEYBOARD_INPUT)
+}
 
 static SLEEP_ID: AtomicUsize = AtomicUsize::new(1_000_000);
 

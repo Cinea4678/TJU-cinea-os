@@ -121,6 +121,7 @@ impl Bus {
     }
 
     /// 读取LBA0寄存器（指示要读取或写入的扇区号的中 8 位）
+    #[allow(dead_code)]
     fn lba0(&mut self) -> u8 {
         unsafe { self.lba0_register.read() }
     }

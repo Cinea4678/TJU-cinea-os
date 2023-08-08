@@ -10,8 +10,9 @@ use x86::io::inb;
 use x86_64::instructions::interrupts;
 use cinea_os_sysapi::event::*;
 
-use crate::{debug, print, syskrnl};
+use crate::{debug, syskrnl};
 use crate::syskrnl::event;
+use crate::syskrnl::proc::SCHEDULER;
 
 static SCANCODE_QUEUE: OnceCell<ArrayQueue<u8>> = OnceCell::uninit();
 static WAKER: AtomicWaker = AtomicWaker::new();
@@ -80,7 +81,7 @@ pub async fn print_keypresses(){
     while let Some(scancode) = scancodes.next().await{
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode){
             if let Some(key) = keyboard.process_keyevent(key_event) {
-                debugln!("{:?}",key);
+                // debugln!("{:?}",key);
                 match key {
                     DecodedKey::Unicode(character) => {key_event_handler(character)}
                     DecodedKey::RawKey(key) => {debug!("undk:{:?}",key)}
@@ -91,5 +92,7 @@ pub async fn print_keypresses(){
 }
 
 fn key_event_handler(ch:char){
-    event::EVENT_QUEUE.lock().wakeup_with_ret(KEYBOARD_INPUT, ch as usize);
+    if let Some(pid) = event::EVENT_QUEUE.lock().wakeup_with_ret(KEYBOARD_INPUT, ch as u32 as usize){
+        SCHEDULER.lock().wakeup(pid);
+    }
 }

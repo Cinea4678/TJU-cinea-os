@@ -3,12 +3,11 @@
 
 extern crate alloc;
 
-use alloc::string::{String, ToString};
-use alloc::vec;
-use alloc::{format, vec::Vec};
+use alloc::string::String;
 
-use cinea_os_sysapi::{allocator, entry_point, syscall::spawn};
-use cinea_os_userspace::{print, std};
+use cinea_os_sysapi::{allocator, entry_point};
+use cinea_os_sysapi::stdin::get_line_string;
+use cinea_os_userspace::print;
 
 entry_point!(main);
 
@@ -22,6 +21,10 @@ fn main(_args: &[&str]) {
 
     loop {
         print!("{} $ ", nowdir.as_str());
+
+        let cmd = get_line_string(false);
+
+        print!("\n你输入的是: {}\n\n", cmd.as_str());
 
         loop {}
     }

@@ -7,7 +7,7 @@
 
 extern crate alloc;
 
-use alloc::{format, vec};
+use alloc::vec;
 use alloc::vec::Vec;
 use core::panic::PanicInfo;
 

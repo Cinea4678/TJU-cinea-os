@@ -1,6 +1,7 @@
 use core::arch::asm;
 
 use crate::event_call;
+use crate::syscall::log;
 
 pub const KEYBOARD_INPUT: usize = 0x00;
 pub const SLEEP_WAKEUP: usize = 0x01;
@@ -9,7 +10,16 @@ pub fn sleep(million_seconds: usize) {
     unsafe { event_call!(SLEEP_WAKEUP, million_seconds); }
 }
 
-pub fn getch()->char{unsafe {char::from_u32_unchecked(event_call!(KEYBOARD_INPUT) as u32)}}
+pub fn getch(display_back: bool) -> char {
+    unsafe {
+        let res = char::from_u32_unchecked(event_call!(KEYBOARD_INPUT) as u32);
+        if display_back {
+            let mut buf = [0u8;4];
+            log(char::encode_utf8(res, &mut buf).as_bytes());
+        }
+        res
+    }
+}
 
 #[macro_export]
 macro_rules! event_call {

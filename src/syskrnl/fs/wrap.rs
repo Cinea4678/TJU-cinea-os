@@ -3,7 +3,7 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::ops::Deref;
+
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use fatfs::{DirEntry, Read, Seek, SeekFrom, Write};

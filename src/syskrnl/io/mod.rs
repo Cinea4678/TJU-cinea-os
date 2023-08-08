@@ -67,7 +67,7 @@ macro_rules! println {
 pub struct StdOutDevice;
 
 impl FileIO for StdOutDevice {
-    fn read(&mut self, buf: &mut [u8]) -> Result<usize, ()> {
+    fn read(&mut self, _buf: &mut [u8]) -> Result<usize, ()> {
         Ok(0)
     }
 

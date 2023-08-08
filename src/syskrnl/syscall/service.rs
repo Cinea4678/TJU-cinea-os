@@ -1,6 +1,6 @@
 use alloc::string::String;
 use alloc::vec::Vec;
-use core::mem::forget;
+
 use core::ptr::slice_from_raw_parts_mut;
 use core::sync::atomic::Ordering;
 
@@ -149,5 +149,4 @@ pub fn panic(ptr: usize) -> usize {
     let obj: PanicInfo = syscall_deserialize!(ptr);
     println!("{:?}", obj);
     panic!("User-Space APP asked to panic. ACCR");
-    0
 }
