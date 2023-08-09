@@ -81,11 +81,6 @@ impl TextWriter {
     /// 提供外部调用的版本，内部勿调用
     pub fn write_char(&mut self, ch: char) {
         self._write_char(ch);
-
-        GD.lock().render((self.line_height + self.line_gap) * self.line_position + self.text_area_pos.0,
-                         self.y_position + self.text_area_pos.1,
-                         (self.line_height + self.line_gap) * self.line_position + self.text_area_pos.0 + (TEXT_SIZE * 1.5) as usize,
-                         self.y_position + self.text_area_pos.1 + TEXT_SIZE as usize);
     }
 
     pub fn write_string(&mut self, s: &str) {
@@ -94,10 +89,6 @@ impl TextWriter {
             self._write_char(ch);
         }
         let ex = self.line_position;
-        GD.lock().render((self.line_height + self.line_gap) * sx + TEXT_AREA_POS.0,
-                         self.text_area_pos.1,
-                         (self.line_height + self.line_gap) * ex + TEXT_AREA_POS.0 + (TEXT_SIZE * 1.5) as usize,
-                         self.text_area_pos.1 + self.text_area_width);
     }
 
 
@@ -122,7 +113,6 @@ impl TextWriter {
             }
 
             drop(lock);
-            GD.lock().render(self.text_area_pos.0, self.text_area_pos.1, self.text_area_pos.0 + self.text_area_height, self.text_area_pos.1 + self.text_area_width);
         }
     }
 

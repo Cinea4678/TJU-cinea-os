@@ -12,3 +12,4 @@ lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
 ryu = "1.0.15"
 spin = "0.9.8"
 ufmt = "0.2.0"
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }

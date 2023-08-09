@@ -1,12 +1,14 @@
+use core::sync::atomic::{AtomicBool, Ordering};
 
-use crate::syskrnl::graphic::{GD, GL, HEIGHT, WIDTH};
-use crate::syskrnl::gui::cursor::display_cursor_first_time;
+use crate::syskrnl::graphic::GL;
+use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
 use crate::syskrnl::gui::status_bar::show_status_bar;
 
-
 pub mod status_bar;
-mod cursor;
+pub mod cursor;
 pub mod panic;
+
+pub static RENDER_OK: AtomicBool = AtomicBool::new(false);
 
 /// 图层规则（暂定）
 ///
@@ -18,12 +20,12 @@ pub mod panic;
 pub fn init() {
     GL.read()[0].lock().enable = true;
     GL.read()[1].lock().enable = true;
-    GL.read()[2].lock().enable = true;
+    GL.read()[4].lock().enable = true;
     show_command_area();
     show_status_bar();
-    display_cursor_first_time(HEIGHT / 2, WIDTH / 2);
+    MOUSE_CURSOR.lock().print_manually();
 
-    GD.lock().render(0, 0, HEIGHT, WIDTH);
+    RENDER_OK.store(true, Ordering::Relaxed);
 }
 
 fn show_command_area() {

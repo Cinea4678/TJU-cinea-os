@@ -48,6 +48,20 @@ macro_rules! print {
     })
 }
 
+#[macro_export]
+macro_rules! debug {
+    ($exp:expr) => ({
+        $crate::print!("{}", serde_json::to_string(&$exp).unwrap().as_str());
+    })
+}
+
+#[macro_export]
+macro_rules! debugln {
+    ($exp:expr) => ({
+        $crate::print!("{}\n", serde_json::to_string(&$exp).unwrap().as_str());
+    })
+}
+
 // #[macro_export]
 // macro_rules! println {
 //     () => ($crate::print!("\n"));

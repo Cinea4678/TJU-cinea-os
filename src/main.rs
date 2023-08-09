@@ -16,7 +16,8 @@ use x86::int;
 
 use cinea_os::{debugln, hlt_loop, println, syskrnl};
 use cinea_os::syskrnl::task::executor::Executor;
-use cinea_os::syskrnl::task::keyboard::print_keypresses;
+use cinea_os::syskrnl::task::keyboard::key_presses_handler;
+use cinea_os::syskrnl::task::mouse::mouse_handler;
 use cinea_os::syskrnl::task::Task;
 
 #[cfg(not(test))]
@@ -56,7 +57,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // 0号进程继续它的工作：Handle键盘输入。
     let mut executor = Executor::new();
     //executor.spawn(Task::new(example_task()));
-    executor.spawn(Task::new(print_keypresses()));
+    executor.spawn(Task::new(key_presses_handler()));
+    executor.spawn(Task::new(mouse_handler()));
     executor.run();
 }
 

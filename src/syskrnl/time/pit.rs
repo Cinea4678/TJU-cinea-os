@@ -1,6 +1,9 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 use x86_64::instructions::interrupts;
 use crate::{syskrnl};
+use crate::syskrnl::graphic::GD;
+use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
+use crate::syskrnl::gui::RENDER_OK;
 
 /// `PIT_FREQUENCY`的值是x86架构默认的
 pub const PIT_FREQUENCY: f64 = 3_579_545.0 / 3.0; // 1_193_181.666 Hz
@@ -36,6 +39,12 @@ pub fn set_pit_frequency_divider(divider: u16, channel: u8){
 /// PIT中断处理程序
 pub fn pit_interrupt_handler(){
     PIT_TICKS.fetch_add(1,Ordering::Relaxed);
+
+    // 每1/25秒渲染一次
+    if RENDER_OK.load(Ordering::Relaxed) && PIT_TICKS.load(Ordering::Relaxed) % 40 == 0{
+        MOUSE_CURSOR.lock().update_mouse();
+        GD.lock().render(0,0,600,800);
+    }
 }
 
 pub fn get_ticks() -> usize {

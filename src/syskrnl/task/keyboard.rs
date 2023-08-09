@@ -74,7 +74,7 @@ impl Stream for ScancodeStream {
     }
 }
 
-pub async fn print_keypresses(){
+pub async fn key_presses_handler(){
     let mut scancodes = ScancodeStream::new();
     let mut keyboard = Keyboard::new(layouts::Us104Key, ScancodeSet1, HandleControl::MapLettersToUnicode);
 

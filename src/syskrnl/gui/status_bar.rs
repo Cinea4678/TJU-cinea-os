@@ -40,7 +40,6 @@ pub fn update_status_bar_time(show_colon: bool) {
         // );
         drop(lock);
         drop(p_lock);
-        GD.lock().render(0, 330, 20, 450);
         // GD.lock().render(200, 270, 235, 530);
     }
 }

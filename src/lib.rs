@@ -10,6 +10,7 @@
 #![feature(exclusive_range_pattern)]
 #![feature(custom_test_frameworks)]
 #![feature(vec_into_raw_parts)]
+#![feature(new_uninit)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -36,13 +37,15 @@ pub fn init(bootinfo: &'static BootInfo) {
     // 加载内存
     println!("\n\nInitializing the memory...\n");
     syskrnl::memory::init(bootinfo);
-    syskrnl::gui::init();
 
     // 启用各类IO设备
     syskrnl::io::ata::init();
     syskrnl::time::init();
     syskrnl::task::keyboard::init();
-    syskrnl::task::mouse::init();
+    syskrnl::io::mouse::init();
+
+    // 最后，再启动gui
+    syskrnl::gui::init();
 }
 
 pub fn hlt_loop() -> ! {
