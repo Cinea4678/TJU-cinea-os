@@ -23,10 +23,13 @@ pub static RENDER_OK: AtomicBool = AtomicBool::new(false);
 pub fn init() {
     GL.read()[0].lock().enable = true;
     GL.read()[1].lock().enable = true;
+    GL.read()[2].lock().enable = true;
     GL.read()[4].lock().enable = true;
     show_command_area();
     show_status_bar();
     MOUSE_CURSOR.lock().print_manually();
+    
+    window::init();
 
     RENDER_OK.store(true, Ordering::Relaxed);
 }

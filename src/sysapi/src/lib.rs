@@ -47,8 +47,8 @@ pub mod fs;
 pub mod syscall;
 pub mod time;
 pub mod stdin;
-pub mod window;
 pub mod font;
+pub mod window;
 
 /// 进程退出代码
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -100,6 +100,13 @@ macro_rules! entry_point {
             f(args);
             $crate::syscall::exit($crate::ExitCode::Success);
         }
+    };
+}
+
+#[macro_export]
+macro_rules! rgb888 {
+    ($num:expr) => {
+        embedded_graphics::pixelcolor::Rgb888::new(($num>>16) as u8,($num>>8) as u8,$num as u8)
     };
 }
 

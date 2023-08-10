@@ -25,6 +25,7 @@ pub fn spawn(number: usize, args_ptr: usize, args_len: usize, args_cap: usize) -
     let subprocess: &[u8] = match number {
         0x00 => include_bytes!("../../../dsk/bin/hello"),
         0x01 => include_bytes!("../../../dsk/bin/infprint"),
+        0x02 => include_bytes!("../../../dsk/bin/taffy"),
         _ => {
             println!("spawn: invalid number");
             return ExitCode::OpenError;

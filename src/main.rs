@@ -14,11 +14,13 @@ use core::panic::PanicInfo;
 use bootloader::{BootInfo, entry_point};
 use x86::int;
 
-use cinea_os::{debugln, hlt_loop, println, syskrnl};
+use cinea_os::{debugln, hlt_loop, println, rgb888, syskrnl};
 use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::key_presses_handler;
 use cinea_os::syskrnl::task::mouse::mouse_handler;
 use cinea_os::syskrnl::task::Task;
+use cinea_os_sysapi::font::load_font;
+use cinea_os_sysapi::window;
 
 #[cfg(not(test))]
 entry_point!(kernel_main);
@@ -53,6 +55,13 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0, 0).unwrap();
         panic!("The process is Cracked.");
     }
+
+
+    // let mut window_instance = window::init_window_gui("测试 GUI 窗口渲染", rgb888!(0xffffffu32)).expect("获取窗口实例失败");
+    // load_font("Vonwaon", "/sys/ast/VonwaonBitmap-16px.ttf").expect("Load Font Failed");
+    // unsafe {
+    //     window_instance.display_font_string("关注", "Vonwaon", 10, 10, 16.0, 16, rgb888!(0x0));
+    // }
 
     // 0号进程继续它的工作：Handle键盘输入。
     let mut executor = Executor::new();

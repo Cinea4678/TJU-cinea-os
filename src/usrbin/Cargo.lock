@@ -65,6 +65,7 @@ name = "cinea-os-userspace"
 version = "0.1.0"
 dependencies = [
  "cinea-os-sysapi",
+ "embedded-graphics",
  "lazy_static",
  "ryu",
  "serde_json",

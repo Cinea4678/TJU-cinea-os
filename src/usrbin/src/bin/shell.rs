@@ -8,6 +8,7 @@ use alloc::vec::Vec;
 
 use cinea_os_sysapi::{allocator, entry_point};
 use cinea_os_sysapi::stdin::get_line_string;
+use cinea_os_sysapi::syscall::spawn;
 use cinea_os_userspace::print;
 
 use crate::ResolveError::BrokenQuote;
@@ -121,6 +122,9 @@ fn main(_args: &[&str]) {
                     print!("{} ", resolved[i].as_str())
                 }
                 print!("\n");
+                if resolved[0].as_str() == "taffy" {
+                    let _ = spawn(2, Vec::new().as_slice()).is_ok();
+                }
             }
         }
     }

@@ -7,6 +7,7 @@ pub mod pci;
 pub mod qemu;
 pub mod mouse;
 pub mod ata;
+pub mod ahci;
 
 pub enum VideoMode {
     Text,

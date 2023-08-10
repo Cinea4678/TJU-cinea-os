@@ -1,4 +1,5 @@
 use alloc::string::String;
+use alloc::vec;
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
@@ -9,6 +10,7 @@ use ufmt::uDebug;
 use FileError::BadRelatePathError;
 
 use crate::call::*;
+use crate::fs::FileError::NotAFileError;
 use crate::syscall;
 use crate::time::{Date, DateTime};
 
@@ -443,4 +445,13 @@ pub fn info(path: &str) -> Result<Metadata, FileError> {
         Err(_) => Err(FileError::OSError),
         Ok(ret) => ret
     }
+}
+
+pub fn read_all_from_path(path: &str) -> Result<Vec<u8>, FileError> {
+    let metadata = info(path)?;
+    if !metadata.is_file() { return Err(NotAFileError); }
+    let handle = open(path, false)?;
+    let mut buf = vec![0u8; metadata.len() as usize];
+    read(handle, buf.as_mut_slice())?;
+    return Ok(buf);
 }

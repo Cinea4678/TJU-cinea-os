@@ -3,7 +3,7 @@ use x86_64::instructions::interrupts;
 use crate::{syskrnl};
 use crate::syskrnl::graphic::GD;
 use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
-use crate::syskrnl::gui::RENDER_OK;
+use crate::syskrnl::gui::{RENDER_OK, WINDOW_MANAGER};
 
 /// `PIT_FREQUENCY`的值是x86架构默认的
 pub const PIT_FREQUENCY: f64 = 3_579_545.0 / 3.0; // 1_193_181.666 Hz
@@ -43,6 +43,7 @@ pub fn pit_interrupt_handler(){
     // 每1/25秒渲染一次
     if RENDER_OK.load(Ordering::Relaxed) && PIT_TICKS.load(Ordering::Relaxed) % 40 == 0{
         MOUSE_CURSOR.lock().update_mouse();
+        WINDOW_MANAGER.lock().render();
         GD.lock().render(0,0,600,800);
     }
 }

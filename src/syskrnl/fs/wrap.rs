@@ -287,7 +287,7 @@ pub fn write_with_path(path: &str, buf: &[u8]) -> Result<usize, FileError> {
     }
 }
 
-fn read_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
+fn read_path(path: &str, store: &mut [u8]) -> Result<usize, FileError> {
     let lock = DATA_DISK_FS.lock();
     let root = lock.root_dir();
     let file = seekpath(path, root)?;
@@ -295,10 +295,17 @@ fn read_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
     let mut file = file.to_file();
 
     if file.seek(SeekFrom::Start(0)).is_err() { return Err(OSError); }
-    match file.read(buf) {
-        Err(_) => Err(OSError),
-        Ok(len) => Ok(len)
+    let mut buf = [0u8; 8192];
+    let mut pos = 0usize;
+    while let Ok(len) = file.read(&mut buf) {
+        if len == 0 {
+            return Ok(pos);
+        } else {
+            store[pos..pos + len].copy_from_slice(&buf[0..len]);
+            pos += len;
+        }
     }
+    Err(OSError)
 }
 
 fn read_device(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {

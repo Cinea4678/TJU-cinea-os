@@ -1,10 +1,12 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
-use alloc::vec;
+use alloc::{format, vec};
 use lazy_static::lazy_static;
 use rusttype::{Font, HMetrics, Scale, ScaledGlyph};
 use spin::RwLock;
 use crate::fs;
+use crate::fs::{FileError, read_all_from_path};
+use crate::syscall::log;
 
 lazy_static! {
     static ref FONT_MAP: RwLock<BTreeMap<String, Font<'static>>> = {
@@ -16,18 +18,16 @@ pub fn get_font(name: &str) -> Option<Font<'static>> {
     FONT_MAP.read().get(name).cloned()
 }
 
-pub fn load_font(name: &str, path: &str) {
-    if FONT_MAP.read().contains_key(name) { return; }
-    if let Ok(metadata) = fs::info(path) && metadata.is_file() {
-        if let Ok(handle) = fs::open(path, false) {
-            let mut buf = vec![0u8; metadata.len() as usize];
-            if fs::read(handle, buf.as_mut_slice()).is_ok() {
-                if let Some(font) = Font::try_from_vec(buf) {
-                    let mut lock = FONT_MAP.write();
-                    lock.insert(String::from(name), font);
-                }
-            }
-        }
+pub fn load_font(name: &str, path: &str) -> Result<(), FileError> {
+    if FONT_MAP.read().contains_key(name) { return Ok(()); }
+    let buf = read_all_from_path(path)?;
+    // log(format!("{:?}",&buf.as_slice()[buf.len()-10..buf.len()]).as_bytes());
+    if let Some(font) = Font::try_from_vec(buf) {
+        let mut lock = FONT_MAP.write();
+        lock.insert(String::from(name), font);
+        Ok(())
+    } else {
+        Err(FileError::DeviceIOError)
     }
 }
 

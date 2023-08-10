@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 use alloc::string::String;
-use alloc::vec;
+use alloc::{format, vec};
 use alloc::vec::Vec;
 use core::cmp::min;
 use core::pin::Pin;
@@ -12,12 +12,13 @@ use rusttype::{point, Rect, ScaledGlyph};
 use tinybmp::{Bmp, ChannelMasks, RawBmp, RawPixel};
 use crate::call::CREATE_WINDOW;
 use crate::font::get_glyph;
+use crate::syscall::log;
 use crate::window;
 
-pub const WINDOW_WIDTH: usize = 200;
+pub const WINDOW_WIDTH: usize = 300;
 pub const WINDOW_HEIGHT: usize = 200;
-pub const WINDOW_CONTENT_WIDTH: usize = 196;
-pub const WINDOW_CONTENT_HEIGHT: usize = 180;
+pub const WINDOW_CONTENT_WIDTH: usize = 296;
+pub const WINDOW_CONTENT_HEIGHT: usize = 178;
 
 pub type WindowGraphicMemory = Vec<Vec<Rgb888>>;
 
@@ -27,7 +28,7 @@ pub struct WindowWriter {
 }
 
 impl WindowWriter {
-    pub(in crate::window) fn new(background_color: Rgb888) -> Self {
+    pub fn new(background_color: Rgb888) -> Self {
         Self {
             gm: Pin::new(Box::new(vec![vec![background_color; WINDOW_CONTENT_WIDTH]; WINDOW_CONTENT_HEIGHT])),
             bg_color: background_color,
@@ -43,7 +44,7 @@ impl WindowWriter {
     }
 
     pub fn display_pixel_safe(&mut self, x: usize, y: usize, color: Rgb888) {
-        if x < WINDOW_CONTENT_WIDTH && y < WINDOW_CONTENT_WIDTH {
+        if x < WINDOW_CONTENT_HEIGHT && y < WINDOW_CONTENT_WIDTH {
             self.gm[x][y] = color;
         }
     }

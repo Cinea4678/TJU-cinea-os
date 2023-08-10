@@ -69,6 +69,7 @@ impl AtaDeviceReader {
 
 impl Read for AtaDeviceReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        // debugln!("READ: BUF_SIZE:{}", buf.len());
         if self.writing {
             self.flush().expect("Flush Fail");
             self.writing = false;
@@ -88,6 +89,7 @@ impl Read for AtaDeviceReader {
             self.position += next_read;
             buf_pos += next_read;
         }
+        // debugln!("OK BUFPOS: {}", buf_pos);
         Ok(buf_pos)
     }
 }

@@ -173,13 +173,13 @@ impl Writer {
     pub fn display_rect(&mut self, x: usize, y: usize, w: usize, h: usize, color: Rgb888) {
         let x_end = min(x + h, HEIGHT);
         let y_end = min(y + w, WIDTH);
-        debugln!("{:?}", self.data[x][y]);
+        // debugln!("{:?}", self.data[x][y]);
         for i in x..x_end {
             for j in y..y_end {
                 self.data[i][j] = (color, true);
             }
         }
-        debugln!("{:?}", self.data[x][y]);
+        // debugln!("{:?}", self.data[x][y]);
     }
 
     pub fn clear_rect(&mut self, x: usize, y: usize, w: usize, h: usize) {
@@ -295,6 +295,14 @@ impl Writer {
             let (glyph, hm) = get_font(ch, size);
             self.display_font(glyph, x_pos, y_pos, size, line_height, color);
             y_pos += hm.advance_width as usize + 1usize;
+        }
+    }
+
+    pub fn display_from_copied(&mut self, x: usize, y: usize, data: &Vec<Vec<Rgb888>>) {
+        for (i, c) in data.iter().enumerate() {
+            for (j, d) in c.iter().enumerate() {
+                self.display_pixel_safe(x + i, y + j, *d);
+            }
         }
     }
 
