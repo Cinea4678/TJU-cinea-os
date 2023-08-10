@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 fatfs = { git = "https://github.com/rafalh/rust-fatfs.git", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.174", default-features = false, features = ["alloc"] }
+embedded-graphics = "0.8.0"
 postcard = { version = "1.0.6", default-features = false, features = ["alloc"] }
 bitflags = { version = "2.3.3", features = ["serde"] }
 ufmt = "0.2.0"

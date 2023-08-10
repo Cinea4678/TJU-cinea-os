@@ -7,6 +7,7 @@ use crate::syskrnl::gui::status_bar::show_status_bar;
 pub mod status_bar;
 pub mod cursor;
 pub mod panic;
+pub mod window;
 
 pub static RENDER_OK: AtomicBool = AtomicBool::new(false);
 
