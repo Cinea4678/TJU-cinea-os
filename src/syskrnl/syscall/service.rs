@@ -117,6 +117,13 @@ pub fn open(ptr: usize) -> usize {
     ptr_back
 }
 
+pub fn info(ptr: usize) -> usize {
+    let obj: String = syscall_deserialize!(ptr);
+
+    let ptr_back = syscall_serialized_ret!(&syskrnl::fs::info(obj));
+    ptr_back
+}
+
 pub fn write_all(ptr: usize) -> usize {
     let obj: (usize, Vec<u8>) = syscall_deserialize!(ptr);
     let ptr_back = syscall_serialized_ret!(&syskrnl::fs::write_all(obj.0, obj.1.as_slice()));
@@ -149,4 +156,9 @@ pub fn panic(ptr: usize) -> usize {
     let obj: PanicInfo = syscall_deserialize!(ptr);
     println!("{:?}", obj);
     panic!("User-Space APP asked to panic. ACCR");
+}
+
+pub fn create_window(ptr: usize) -> usize {
+    let obj: (String, usize) = syscall_deserialize!(ptr);
+    syscall_serialized_ret!(&syskrnl::gui::WINDOW_MANAGER.lock().create_window(obj.0.as_str(),obj.1))
 }

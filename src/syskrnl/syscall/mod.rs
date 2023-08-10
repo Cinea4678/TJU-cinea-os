@@ -15,7 +15,7 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
         match syscall_id {
             EXIT => service::exit(ExitCode::from(arg1)) as usize,
             SPAWN => service::spawn(arg1, arg2, arg3, arg4) as usize,
-            INFO => unimplemented!(),
+            INFO => service::info(arg1),
             DUP => unimplemented!(),
             DELETE => unimplemented!(),
             STOP => unimplemented!(),
@@ -64,6 +64,9 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
             }
             READ_PATH => {
                 service::read_path(arg1)
+            }
+            CREATE_WINDOW => {
+                service::create_window(arg1)
             }
             _ => panic!("unknown syscall id: {}", syscall_id),
         }

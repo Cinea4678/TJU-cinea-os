@@ -100,8 +100,12 @@ dependencies = [
  "bitflags 2.3.3",
  "embedded-graphics",
  "fatfs",
+ "lazy_static",
  "postcard",
+ "rusttype",
  "serde",
+ "spin 0.9.8",
+ "tinybmp",
  "ufmt",
 ]
 

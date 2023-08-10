@@ -437,6 +437,10 @@ pub fn read_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
     }
 }
 
-pub fn info(_path: &str) -> FileEntry {
-    todo!()
+pub fn info(path: &str) -> Result<Metadata, FileError> {
+    let ret: Result<Result<Metadata, FileError>, _> = syscall_with_serdeser!(INFO, String::from(path));
+    match ret {
+        Err(_) => Err(FileError::OSError),
+        Ok(ret) => ret
+    }
 }

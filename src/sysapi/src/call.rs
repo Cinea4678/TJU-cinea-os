@@ -72,6 +72,7 @@ pub const WRITE_ALL: usize = 0x23;
 pub const READ: usize = 0x24;
 pub const WRITE_PATH: usize = 0x25;
 pub const READ_PATH: usize = 0x26;
+pub const CREATE_WINDOW: usize = 0x30;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SysCallResult {
@@ -160,7 +161,7 @@ pub fn syscall_deserialized<'de, T>(vec_data: &'de Vec<u8>) -> Result<T, postcar
 macro_rules! syscall_with_deserialize {
     ($($arg:tt)*) => {
         {
-            let _ret = unsafe { syscall!($($arg)*) };
+            let _ret = unsafe { $crate::syscall!($($arg)*) };
             let _ret_vec_data = $crate::call::syscall_deserialized_prepare(_ret);
             $crate::call::syscall_deserialized(&_ret_vec_data)
         }
@@ -172,7 +173,7 @@ macro_rules! syscall_with_serdeser {
     ($call:expr,$obj:expr) => {
         {
             let _encoded = $crate::call::syscall_serialized(&$obj);
-            let _ret = unsafe { syscall!($call, _encoded) };
+            let _ret = unsafe { $crate::syscall!($call, _encoded) };
             let _ret_vec_data = $crate::call::syscall_deserialized_prepare(_ret);
             $crate::call::syscall_deserialized(&_ret_vec_data)
         }
@@ -184,7 +185,7 @@ macro_rules! syscall_with_serialize {
     ($call:expr,$obj:expr) => {
         {
             let _encoded = $crate::call::syscall_serialized(&$obj);
-            unsafe { syscall!($call, _encoded) };
+            unsafe { $crate::syscall!($call, _encoded) };
         }
     };
 }

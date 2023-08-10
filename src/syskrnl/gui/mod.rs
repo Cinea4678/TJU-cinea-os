@@ -9,6 +9,8 @@ pub mod cursor;
 pub mod panic;
 pub mod window;
 
+pub use window::WINDOW_MANAGER;
+
 pub static RENDER_OK: AtomicBool = AtomicBool::new(false);
 
 /// 图层规则（暂定）
