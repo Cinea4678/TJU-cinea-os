@@ -335,6 +335,11 @@ pub fn read_with_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
     }
 }
 
+pub fn info(path: &str) -> Result<Metadata, FileError> {
+    let path = fsapi::path_standardize(path)?;
+    metadata(path.as_str())
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec;
