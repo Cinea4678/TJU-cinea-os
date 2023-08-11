@@ -532,12 +532,23 @@ pub fn init() {
     match abar.ports[0].read(0, 1, &mut buf) {
         false => { debugln!("读盘失败QAQ") },
         true => {
-            debugln!("读盘成功，请核对：{:#?}", buf);
+            debugln!("读盘成功，请核对：{:?}", buf);
+        }
+    }
+
+    buf[0] = 0xCA;
+    buf[1] = 0xFE;
+    debugln!("开始写盘测试：端口0，扇区0，长度1扇区");
+    match abar.ports[0].write(0,1,&buf) {
+        false => {debugln!("写盘失败QAQ")},
+        true => {
+            debugln!("写盘成功，请前往VS Code查看")
         }
     }
 }
 
 const ATA_CMD_READ_DMA_EX: u8 = 0x25;
+const ATA_CMD_WRITE_DMA_EX: u8 = 0x35;
 
 const ATA_DEV_BUSY: u8 = 0x80;
 const ATA_DEV_DRQ: u8 = 0x08;
@@ -615,7 +626,6 @@ impl HbaPort {
             } else {
                 self.ci.update(|x| *x |= 1 << slot);  // 签发命令
 
-                debugln!("开始等待");
                 // Wait for completion
                 loop {
                     // In some longer duration reads, it may be helpful to spin on the DPS bit
@@ -632,6 +642,89 @@ impl HbaPort {
                 // Check again
                 if self.is.read() & HBA_PxIS_TFES > 0 {
                     debugln!("Read disk error");
+                    false
+                } else {
+                    true
+                }
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn write(&mut self, pos: u64, count: u32, buf: &[u8]) -> bool {
+        self.is.write((-1i32) as u32);
+        let mut spin = 0;
+        if let Some(slot) = self.find_cmdslot() {
+            let cmd_header = unsafe { &mut *((self.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader).add(slot as usize) };
+            cmd_header.set_cfl((mem::size_of::<FisRegH2d>() / mem::size_of::<u32>()) as u8); // Command FIS size
+            cmd_header.set_w(true);        // Write to device
+            cmd_header.prdtl = (((count - 1) >> 4) + 1) as u16;
+
+            let mut cmd_table = HbaCmdTbl::with_entries(cmd_header.prdtl as usize);
+
+            let mut buf_addr = unsafe { translate_addr(buf.as_ptr() as u64).unwrap() };
+            let mut count = count;
+            let prdt_entry = cmd_table.prdt_entries_mut(cmd_header.prdtl as usize);
+
+            for i in 0..cmd_header.prdtl as usize {
+                if i < cmd_header.prdtl as usize - 1 {
+                    prdt_entry[i].dba = buf_addr;
+                    prdt_entry[i].set_dbc(8 * 1024 - 1); // 8K bytes (this value should always be set to 1 less than the actual value)
+                    prdt_entry[i].set_i(true);
+                    buf_addr += 8 * 1024; // 8K bytes
+                    count -= 16;          // 16 sectors
+                } else {
+                    prdt_entry[i].dba = buf_addr;
+                    prdt_entry[i].set_dbc((count << 9) - 1);  // 512 bytes per sector
+                    prdt_entry[i].set_i(true);
+                }
+            }
+
+            let cmd_fis = unsafe { &mut *(cmd_table.cfis.as_ptr() as *mut FisRegH2d) };
+            cmd_fis.fis_type = FisType::FisTypeRegH2d as u8;
+            cmd_fis.set_c(1); // Command
+            cmd_fis.command = ATA_CMD_WRITE_DMA_EX;
+
+            cmd_fis.lba0 = pos as u8;
+            cmd_fis.lba1 = (pos >> 8) as u8;
+            cmd_fis.lba2 = (pos >> 16) as u8;
+            cmd_fis.lba3 = (pos >> 24) as u8;
+            cmd_fis.lba4 = (pos >> 32) as u8;
+            cmd_fis.lba5 = (pos >> 40) as u8;
+
+            cmd_fis.device = 1 << 6;  // LBA mode
+            cmd_fis.countl = (count & 0xFF) as u8;
+            cmd_fis.counth = ((count >> 8) & 0xFF) as u8;
+
+            cmd_header.ctba = unsafe { translate_addr(Box::into_raw(cmd_table) as u64).unwrap() };
+
+            // The below loop waits until the port is no longer busy before issuing a new command
+            while (self.tfd.read() & (ATA_DEV_BUSY | ATA_DEV_DRQ) as u32) > 0 && spin < 1000000 {
+                spin += 1;
+            }
+            if spin == 1000000 {
+                debugln!("Port is hung");
+                false
+            } else {
+                self.ci.update(|x| *x |= 1 << slot);  // 签发命令
+
+                // Wait for completion
+                loop {
+                    // In some longer duration reads, it may be helpful to spin on the DPS bit
+                    // in the PxIS port field as well (1 << 5)
+                    if self.ci.read() & (1 << slot) == 0 {
+                        break;
+                    }
+                    if self.is.read() & HBA_PxIS_TFES > 0 {
+                        debugln!("Write disk error");
+                        return false;
+                    }
+                }
+
+                // Check again
+                if self.is.read() & HBA_PxIS_TFES > 0 {
+                    debugln!("Write disk error");
                     false
                 } else {
                     true
