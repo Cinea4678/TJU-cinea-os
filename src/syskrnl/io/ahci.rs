@@ -1,3 +1,5 @@
+use alloc::slice;
+
 use volatile::Volatile;
 use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
@@ -20,17 +22,17 @@ pub enum FisType{
 #[repr(C)]
 #[derive(Debug)]
 pub struct HbaMem {     // 0x00 - 0x2B, Generic Host Control
-    pub cap: u32,       // 0x00, Host capability
-    pub ghc: u32,       // 0x04, Global host control
-    pub is: u32,        // 0x08, Interrupt status
-    pub pi: u32,        // 0x0C, Port implemented
-    pub vs: u32,        // 0x10, Version
-    pub ccc_ctl: u32,   // 0x14, Command completion coalescing control
-    pub ccc_pts: u32,   // 0x18, Command completion coalescing ports
-    pub em_loc: u32,    // 0x1C, Enclosure management location
-    pub em_ctl: u32,    // 0x20, Enclosure management control
-    pub cap2: u32,      // 0x24, Host capabilities extended
-    pub bohc: u32,      // 0x28, BIOS/OS handoff control and status
+    pub cap: Volatile<u32>,       // 0x00, Host capability
+    pub ghc: Volatile<u32>,       // 0x04, Global host control
+    pub is: Volatile<u32>,        // 0x08, Interrupt status
+    pub pi: Volatile<u32>,        // 0x0C, Port implemented
+    pub vs: Volatile<u32>,        // 0x10, Version
+    pub ccc_ctl: Volatile<u32>,   // 0x14, Command completion coalescing control
+    pub ccc_pts: Volatile<u32>,   // 0x18, Command completion coalescing ports
+    pub em_loc: Volatile<u32>,    // 0x1C, Enclosure management location
+    pub em_ctl: Volatile<u32>,    // 0x20, Enclosure management control
+    pub cap2: Volatile<u32>,      // 0x24, Host capabilities extended
+    pub bohc: Volatile<u32>,      // 0x28, BIOS/OS handoff control and status
 
     // 0x2C - 0x9F, Reserved
     pub rsv: [Volatile<u8>; 0xA0 - 0x2C],
@@ -45,25 +47,25 @@ pub struct HbaMem {     // 0x00 - 0x2B, Generic Host Control
 #[repr(C)]
 #[derive(Debug)]
 pub struct HbaPort {
-    pub clb: u32,       // 0x00, command list base address, 1K-byte aligned
-    pub clbu: u32,      // 0x04, command list base address upper 32 bits
-    pub fb: u32,        // 0x08, FIS base address, 256-byte aligned
-    pub fbu: u32,       // 0x0C, FIS base address upper 32 bits
-    pub is: u32,        // 0x10, interrupt status
-    pub ie: u32,        // 0x14, interrupt enable
-    pub cmd: u32,       // 0x18, command and status
-    pub rsv0: u32,      // 0x1C, Reserved
-    pub tfd: u32,       // 0x20, task file data
-    pub sig: u32,       // 0x24, signature
-    pub ssts: u32,      // 0x28, SATA status (SCR0:SStatus)
-    pub sctl: u32,      // 0x2C, SATA control (SCR2:SControl)
-    pub serr: u32,      // 0x30, SATA error (SCR1:SError)
-    pub sact: u32,      // 0x34, SATA active (SCR3:SActive)
-    pub ci: u32,        // 0x38, command issue
-    pub sntf: u32,      // 0x3C, SATA notification (SCR4:SNotification)
-    pub fbs: u32,       // 0x40, FIS-based switch control
-    pub rsv1: [u32; 11],  // 0x44 ~ 0x6F, Reserved
-    pub vendor: [u32; 4], // 0x70 ~ 0x7F, vendor specific
+    pub clb: Volatile<u32>,       // 0x00, command list base address, 1K-byte aligned
+    pub clbu: Volatile<u32>,      // 0x04, command list base address upper 32 bits
+    pub fb: Volatile<u32>,        // 0x08, FIS base address, 256-byte aligned
+    pub fbu: Volatile<u32>,       // 0x0C, FIS base address upper 32 bits
+    pub is: Volatile<u32>,        // 0x10, interrupt status
+    pub ie: Volatile<u32>,        // 0x14, interrupt enable
+    pub cmd: Volatile<u32>,       // 0x18, command and status
+    pub rsv0: Volatile<u32>,      // 0x1C, Reserved
+    pub tfd: Volatile<u32>,       // 0x20, task file data
+    pub sig: Volatile<u32>,       // 0x24, signature
+    pub ssts: Volatile<u32>,      // 0x28, SATA status (SCR0:SStatus)
+    pub sctl: Volatile<u32>,      // 0x2C, SATA control (SCR2:SControl)
+    pub serr: Volatile<u32>,      // 0x30, SATA error (SCR1:SError)
+    pub sact: Volatile<u32>,      // 0x34, SATA active (SCR3:SActive)
+    pub ci: Volatile<u32>,        // 0x38, command issue
+    pub sntf: Volatile<u32>,      // 0x3C, SATA notification (SCR4:SNotification)
+    pub fbs: Volatile<u32>,       // 0x40, FIS-based switch control
+    pub rsv1: [Volatile<u32>; 11],  // 0x44 ~ 0x6F, Reserved
+    pub vendor: [Volatile<u32>; 4], // 0x70 ~ 0x7F, vendor specific
 }
 
 #[repr(C)]
@@ -258,7 +260,8 @@ fn check_type(port: &HbaPort) -> u8 {
     }
 }
 
-const AHCI_BASE: u32 = 0x400000;    // 4M
+const AHCI_BASE: u32 = 0x800000;
+const AHCI_PHYSIC_BASE: u32 = 0x400000;    // 4M
 
 const HBA_PxCMD_ST: u32 = 0x0001;
 const HBA_PxCMD_FRE: u32 = 0x0010;
@@ -285,7 +288,18 @@ fn port_rebase(port: &mut HbaPort, port_no: u32) {
 
     // 命令表偏移量：40K + 8K * port_no
     // 命令表大小：256 * 32 = 8K per Port
-    let cmd_header = port.clb.read();
+    let cmd_header = unsafe { slice::from_raw_parts_mut(port.clb.read() as *mut HbaCmdHeader, 32) };
+    for i in 0..32 {
+        cmd_header[i].prdtl = 8;    // 8 prdt entries per command table; 256 bytes per command table, 64+16+48+16*8
+
+
+        // 命令表偏移量：40K + 8K * port_no +  cmd_header_index * 256
+        cmd_header[i].ctba = AHCI_BASE + (40 << 10) + (port_no << 13) + ((i as u32) << 8);
+        cmd_header[i].ctbau = 0;
+        // TODO: MemSet
+    }
+
+    start_cmd(port); // 重启命令引擎
 }
 
 /// 启动命令引擎
@@ -329,7 +343,26 @@ pub fn create_abar_memory_mapping(
     map_to_result.expect("Map_to_AHCI aBar Memory Failed").flush();
 }
 
+pub fn create_ahci_memory_mapping(
+    mapper: &mut OffsetPageTable,
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) {
+    use x86_64::structures::paging::PageTableFlags as Flags;
+
+    // We need 16 pages
+    for i in 0..16 {
+        let page = Page::<Size4KiB>::containing_address(VirtAddr::new((AHCI_BASE + 0x1000 * i) as u64));
+        let frame = PhysFrame::containing_address(PhysAddr::new((AHCI_PHYSIC_BASE + 0x1000 * i) as u64));
+        let flags = Flags::PRESENT | Flags::WRITABLE;
+
+        let map_to_result = unsafe {
+            mapper.map_to(page, frame, flags, frame_allocator)
+        };
+        map_to_result.expect("Map_to_AHCI Memory Failed").flush();
+    }
+}
+
 pub fn init() {
-    let mut abar = unsafe { &*(ABAR_ADDR as *mut HbaMem) };
+    let abar = unsafe { &mut *(ABAR_ADDR as *mut HbaMem) };
     probe_port(abar);
 }

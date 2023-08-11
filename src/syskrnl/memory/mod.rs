@@ -53,6 +53,7 @@ pub fn init(bootinfo: &'static BootInfo) {
         syskrnl::graphic::enter_wide_mode(&mut mapper, &mut frame_allocator); // 因为需要分配显存，就放在这里了
 
         syskrnl::io::ahci::create_abar_memory_mapping(&mut mapper, &mut frame_allocator);
+        syskrnl::io::ahci::create_ahci_memory_mapping(&mut mapper, &mut frame_allocator);
     });
 }
 
