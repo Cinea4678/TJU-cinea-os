@@ -3,7 +3,7 @@ use alloc::format;
 use x86::io::outw;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Size4KiB};
 
-use crate::syskrnl::io::pci::{pci_config_read_u32, pci_find_device};
+use crate::syskrnl::io::pci::{pci_config_read_u32, pci_find_device_by_device_id};
 use crate::syskrnl::memory::graphic_support::create_graphic_memory_mapping;
 use crate::syskrnl::io::qemu::qemu_print;
 
@@ -56,7 +56,7 @@ pub unsafe fn bga_enter_wide(
     bga_write_register(VbeDispiIndex::Enable as u16, 0x41);
 
     // 获取LFB地址
-    let device = pci_find_device(0x1111, 0x1234);
+    let device = pci_find_device_by_device_id(0x1111, 0x1234);
     qemu_print(format!("LFB device is {:?}\n", device).as_str());
     let address = pci_config_read_u32(device.0, device.1, device.2, 0x10);
     qemu_print(format!("We get LFB address:{:?}\n", address).as_str());

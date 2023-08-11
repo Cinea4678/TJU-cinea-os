@@ -40,6 +40,7 @@ pub fn init(bootinfo: &'static BootInfo) {
 
     // 启用各类IO设备
     syskrnl::io::ata::init();
+    syskrnl::io::ahci::init();
     syskrnl::time::init();
     syskrnl::task::keyboard::init();
     syskrnl::io::mouse::init();

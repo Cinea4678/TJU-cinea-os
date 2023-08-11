@@ -78,5 +78,7 @@ else:
     print("File System is already newest.")
 
 print("Starting QEMU...", flush=True)
-os.system(f"qemu-system-x86_64 -drive format=raw,file={BOOT_IMAGE} -serial " +
-          "stdio -m 1G -monitor telnet:localhost:4444,server,nowait -drive format=raw,file=datadisk.img")
+os.system(f"qemu-system-x86_64 -drive format=raw,file={BOOT_IMAGE} -serial \
+          stdio -m 1G -monitor telnet:localhost:4444,server,nowait \
+          -drive id=data_disk,format=raw,file=datadisk.img,if=none \
+          -device ahci,id=ahci -device ide-hd,drive=data_disk,bus=ahci.0")

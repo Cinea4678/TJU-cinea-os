@@ -1,5 +1,7 @@
 use x86::io::{inl, outl};
 
+use crate::debugln;
+
 const PCI_CONFIG_ADDRESS: u16 = 0xCF8;
 const PCI_CONFIG_DATA: u16 = 0xCFC;
 
@@ -11,13 +13,32 @@ pub fn pci_config_read_u32(bus: u8, device: u8, function: u8, offset: u8) -> u32
     };
 }
 
-pub fn pci_find_device(device_id: u16, vendor_id: u16) -> (u8, u8, u8) {
+pub fn pci_find_device_by_device_id(device_id: u16, vendor_id: u16) -> (u8, u8, u8) {
     let target = ((device_id as u32) << 16) + vendor_id as u32;
     for bus in 0..=255 {
         for device in 0..32 {
             for function in 0..8 {
                 // qemu_print(format!("{},{},{}", bus, device, function).as_str());
                 if pci_config_read_u32(bus, device, function, 0) == target {
+                    return (bus, device, function);
+                }
+            }
+        }
+    }
+
+    // 找不到，找不到
+    (0xFF, 0xFF, 0xFF)
+}
+
+pub fn pci_find_device_by_class_code(class_code: u8, subclass: u8) -> (u8, u8, u8) {
+    let target = ((class_code as u32) << 24) + ((subclass as u32) << 16);
+    // debugln!("TARGET: {}", target);
+    let mask = 0xFFFF0000u32;
+    for bus in 0..=255 {
+        for device in 0..32 {
+            for function in 0..8 {
+                // qemu_print(format!("{},{},{}", bus, device, function).as_str());
+                if pci_config_read_u32(bus, device, function, 8) & mask == target {
                     return (bus, device, function);
                 }
             }
