@@ -80,8 +80,12 @@ unsafe fn _active_level_4_table(physical_memory_offset: VirtAddr) -> &'static mu
 ///
 /// 这个函数是危险的。调用者必须保证完整的物理地址已经被映射到虚拟地址上，
 /// 且在Physical Memory Offset所申明的位置上。
-pub unsafe fn translate_addr(addr: VirtAddr, physical_memory_offset: VirtAddr) -> Option<PhysAddr> {
-    translate_addr_inner(addr, physical_memory_offset)
+pub unsafe fn translate_addr(addr: u64) -> Option<u64> {
+    if let Some(res) = translate_addr_inner(VirtAddr::new(addr), unsafe { VirtAddr::new(PHYS_MEM_OFFSET) }) {
+        Some(res.as_u64())
+    } else {
+        None
+    }
 }
 
 /// 私有函数

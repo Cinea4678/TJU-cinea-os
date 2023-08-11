@@ -1,4 +1,7 @@
+use alloc::boxed::Box;
 use alloc::slice;
+use core::{mem, ptr};
+use core::alloc::Layout;
 
 use volatile::Volatile;
 use x86_64::{PhysAddr, VirtAddr};
@@ -6,6 +9,7 @@ use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, 
 
 use crate::debugln;
 use crate::syskrnl::io;
+use crate::syskrnl::memory::translate_addr;
 
 #[repr(u8)]
 pub enum FisType{
@@ -18,6 +22,70 @@ pub enum FisType{
     FisTypePioSetup = 0x5F,	// PIO setup FIS - device to host
     FisTypeDevBits = 0xA1,	// Set device bits FIS - device to host
 }
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct FisRegH2d {
+    // DWORD 0
+    fis_type: u8,      // FIS_TYPE_REG_H2D
+
+    // This is a byte with mixed fields, so I will use a private u8 and provide getters and setters for its parts.
+    _pmport_rsv0_c: u8,
+
+    command: u8,       // Command register
+    featurel: u8,      // Feature register, 7:0
+
+    // DWORD 1
+    lba0: u8,          // LBA low register, 7:0
+    lba1: u8,          // LBA mid register, 15:8
+    lba2: u8,          // LBA high register, 23:16
+    device: u8,        // Device register
+
+    // DWORD 2
+    lba3: u8,          // LBA register, 31:24
+    lba4: u8,          // LBA register, 39:32
+    lba5: u8,          // LBA register, 47:40
+    featureh: u8,      // Feature register, 15:8
+
+    // DWORD 3
+    countl: u8,        // Count register, 7:0
+    counth: u8,        // Count register, 15:8
+    icc: u8,           // Isochronous command completion
+    control: u8,       // Control register
+
+    // DWORD 4
+    rsv1: [u8; 4],     // Reserved
+}
+
+impl FisRegH2d {
+    // Getter and Setter for pmport (4 bits)
+    pub fn pmport(&self) -> u8 {
+        self._pmport_rsv0_c & 0x0F
+    }
+
+    pub fn set_pmport(&mut self, value: u8) {
+        self._pmport_rsv0_c = (self._pmport_rsv0_c & 0xF0) | (value & 0x0F);
+    }
+
+    // Getter and Setter for rsv0 (3 bits)
+    pub fn rsv0(&self) -> u8 {
+        (self._pmport_rsv0_c >> 4) & 0x07
+    }
+
+    pub fn set_rsv0(&mut self, value: u8) {
+        self._pmport_rsv0_c = (self._pmport_rsv0_c & 0x8F) | ((value & 0x07) << 4);
+    }
+
+    // Getter and Setter for c (1 bit)
+    pub fn c(&self) -> u8 {
+        (self._pmport_rsv0_c >> 7) & 0x01
+    }
+
+    pub fn set_c(&mut self, value: u8) {
+        self._pmport_rsv0_c = (self._pmport_rsv0_c & 0x7F) | ((value & 0x01) << 7);
+    }
+}
+
 
 #[repr(C)]
 #[derive(Debug)]
@@ -41,16 +109,14 @@ pub struct HbaMem {     // 0x00 - 0x2B, Generic Host Control
     pub vendor: [Volatile<u8>; 0x100 - 0xA0],
 
     // 0x100 - 0x10FF, Port control registers
-    pub ports: [HbaPort; 1], // 1 ~ 32
+    pub ports: [HbaPort; 32], // 1 ~ 32
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct HbaPort {
-    pub clb: Volatile<u32>,       // 0x00, command list base address, 1K-byte aligned
-    pub clbu: Volatile<u32>,      // 0x04, command list base address upper 32 bits
-    pub fb: Volatile<u32>,        // 0x08, FIS base address, 256-byte aligned
-    pub fbu: Volatile<u32>,       // 0x0C, FIS base address upper 32 bits
+    pub clb: Volatile<u64>,       // 0x00, command list base address, 1K-byte aligned
+    pub fb: Volatile<u64>,        // 0x08, FIS base address, 256-byte aligned
     pub is: Volatile<u32>,        // 0x10, interrupt status
     pub ie: Volatile<u32>,        // 0x14, interrupt enable
     pub cmd: Volatile<u32>,       // 0x18, command and status
@@ -79,8 +145,7 @@ pub struct HbaCmdHeader{
     pub prdbc: Volatile<u32>,  // Physical region descriptor byte count transferred
 
     // DW2, 3
-    pub ctba: u32,   // Command table descriptor base address
-    pub ctbau: u32,  // Command table descriptor base address upper 32 bits
+    pub ctba: u64,   // Command table descriptor base address
 
     // DW4 - 7
     pub rsv1: [u32; 4],  // Reserved
@@ -197,6 +262,81 @@ impl HbaCmdHeader {
     }
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct HbaCmdTbl {
+    // 0x00
+    pub cfis: [u8; 64],    // Command FIS
+
+    // 0x40
+    pub acmd: [u8; 16],    // ATAPI command, 12 or 16 byte
+
+    // 0x50
+    pub rsv: [u8; 48],    // Reserved
+
+    // 0x80
+    prdt_entry: [HbaPrdtEntry; 0],    // Physical region descriptor table entries, 0 ~ 65535
+}
+
+impl HbaCmdTbl {
+    pub fn with_entries(n: usize) -> Box<Self> {
+        let layout = Layout::from_size_align(
+            mem::size_of::<Self>() + n * mem::size_of::<HbaPrdtEntry>(),
+            mem::align_of::<HbaPrdtEntry>(),
+        ).unwrap();
+
+        unsafe {
+            let raw = alloc::alloc::alloc_zeroed(layout);
+            let hba = &mut *(raw as *mut HbaCmdTbl);
+
+            Box::from_raw(hba)
+        }
+    }
+
+    pub fn pred_entries(&mut self, len: usize) -> &[HbaPrdtEntry] {
+        unsafe { slice::from_raw_parts(self.prdt_entry.as_ptr(), len) }
+    }
+
+    pub fn prdt_entries_mut(&mut self, len: usize) -> &mut [HbaPrdtEntry] {
+        unsafe { slice::from_raw_parts_mut(self.prdt_entry.as_mut_ptr(), len) }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct HbaPrdtEntry {
+    pub dba: u64,
+    // Data base address
+    pub rsv0: u32,      // Reserved
+
+    // DW3
+    pub dw3: u32,       // Byte count/Interrupt on completion
+}
+
+impl HbaPrdtEntry {
+    /// Byte count, 4M max
+    pub fn dbc(&self) -> u32 {
+        self.dw3 & 0b00111111_11111111_11111111
+    }
+
+    pub fn set_dbc(&mut self, value: u32) {
+        self.dw3 = (self.dw3 & !0b00111111_11111111_11111111) | (value & 0b00111111_11111111_11111111)
+    }
+
+    /// Interrupt on completion
+    pub fn i(&self) -> bool {
+        (self.dw3 >> 31) > 0
+    }
+
+    pub fn set_i(&mut self, value: bool) {
+        if value {
+            self.dw3 |= 1 << 31
+        } else {
+            self.dw3 &= !(1 << 31)
+        }
+    }
+}
+
 const SATA_SIG_ATA: u32 = 0x0000_0101;      // SATA drive
 const SATA_SIG_ATAPI: u32 = 0xEB14_0101;    // SATAPI drive
 const SATA_SIG_SEMB: u32 = 0xC33C_0101;     // Enclosure management bridge
@@ -260,15 +400,22 @@ fn check_type(port: &HbaPort) -> u8 {
     }
 }
 
-const AHCI_BASE: u32 = 0x800000;
-const AHCI_PHYSIC_BASE: u32 = 0x400000;    // 4M
+const AHCI_BASE: u64 = 0xffffffff_00400000;
+const AHCI_PHYSIC_BASE: u64 = 0x00000000_00400000;    // 4M
 
+#[allow(non_upper_case_globals)]
 const HBA_PxCMD_ST: u32 = 0x0001;
+
+#[allow(non_upper_case_globals)]
 const HBA_PxCMD_FRE: u32 = 0x0010;
+
+#[allow(non_upper_case_globals)]
 const HBA_PxCMD_FR: u32 = 0x4000;
+
+#[allow(non_upper_case_globals)]
 const HBA_PxCMD_CR: u32 = 0x8000;
 
-fn port_rebase(port: &mut HbaPort, port_no: u32) {
+fn port_rebase(port: &mut HbaPort, port_no: u64) {
     // 停止命令引擎
     stop_cmd(port);
 
@@ -276,27 +423,24 @@ fn port_rebase(port: &mut HbaPort, port_no: u32) {
     // 命令列表条目大小：32
     // 命令列表条目最大数量：32
     // 命令列表最大大小：32 * 32 = 1K per Port （看懂了）
-    port.clb.write(AHCI_BASE + (port_no << 10));
-    port.clbu.write(0);
-    // TODO: MEMSET
+    port.clb.write(AHCI_PHYSIC_BASE + (port_no << 10));
+    unsafe { ptr::write_bytes((port.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 1024); }
 
     // FIS 偏移量：32K + 256 * port_no
     // FIS 条目大小：256byte per Port
-    port.fb.write(AHCI_BASE + (32 << 10) + (port_no << 8));
-    port.fbu.write(0);
-    // TODO: MEMSET
+    port.fb.write(AHCI_PHYSIC_BASE + (32 << 10) + (port_no << 8));
+    unsafe { ptr::write_bytes((port.fb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 256); }
 
     // 命令表偏移量：40K + 8K * port_no
     // 命令表大小：256 * 32 = 8K per Port
-    let cmd_header = unsafe { slice::from_raw_parts_mut(port.clb.read() as *mut HbaCmdHeader, 32) };
+    let cmd_header = unsafe { slice::from_raw_parts_mut((port.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader, 32) };
     for i in 0..32 {
         cmd_header[i].prdtl = 8;    // 8 prdt entries per command table; 256 bytes per command table, 64+16+48+16*8
 
 
         // 命令表偏移量：40K + 8K * port_no +  cmd_header_index * 256
-        cmd_header[i].ctba = AHCI_BASE + (40 << 10) + (port_no << 13) + ((i as u32) << 8);
-        cmd_header[i].ctbau = 0;
-        // TODO: MemSet
+        cmd_header[i].ctba = AHCI_PHYSIC_BASE + (40 << 10) + (port_no << 13) + ((i as u64) << 8);
+        unsafe { ptr::write_bytes((cmd_header[i].ctba - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 256); }
     }
 
     start_cmd(port); // 重启命令引擎
@@ -351,8 +495,8 @@ pub fn create_ahci_memory_mapping(
 
     // We need 16 pages
     for i in 0..16 {
-        let page = Page::<Size4KiB>::containing_address(VirtAddr::new((AHCI_BASE + 0x1000 * i) as u64));
-        let frame = PhysFrame::containing_address(PhysAddr::new((AHCI_PHYSIC_BASE + 0x1000 * i) as u64));
+        let page = Page::<Size4KiB>::containing_address(VirtAddr::new(AHCI_BASE + 0x1000 * i));
+        let frame = PhysFrame::containing_address(PhysAddr::new(AHCI_PHYSIC_BASE + 0x1000 * i));
         let flags = Flags::PRESENT | Flags::WRITABLE;
 
         let map_to_result = unsafe {
@@ -362,7 +506,141 @@ pub fn create_ahci_memory_mapping(
     }
 }
 
+const HBA_GHC_HR: u32 = 0x0001;
+// HBA Reset
+const HBA_GHC_AE: u32 = 0x8000; // AHCI Enable
+
+fn start_hba(abar: &mut HbaMem) {
+    abar.ghc.update(|x| *x |= HBA_GHC_AE);
+    abar.ghc.update(|x| *x |= HBA_GHC_HR);
+    while (abar.ghc.read() & HBA_GHC_HR) != 0 {}
+    abar.ghc.update(|x| *x |= HBA_GHC_AE);
+}
+
 pub fn init() {
     let abar = unsafe { &mut *(ABAR_ADDR as *mut HbaMem) };
+
     probe_port(abar);
+
+    start_hba(abar);
+
+    port_rebase(&mut abar.ports[0], 0);
+
+    debugln!("成功完成AHCI内存区域初始化\n\n开始读盘测试：端口0，扇区0，长度一扇区：");
+
+    let mut buf = [0u8; 512];
+    match abar.ports[0].read(0, 1, &mut buf) {
+        false => { debugln!("读盘失败QAQ") },
+        true => {
+            debugln!("读盘成功，请核对：{:#?}", buf);
+        }
+    }
 }
+
+const ATA_CMD_READ_DMA_EX: u8 = 0x25;
+
+const ATA_DEV_BUSY: u8 = 0x80;
+const ATA_DEV_DRQ: u8 = 0x08;
+
+#[allow(non_upper_case_globals)]
+const HBA_PxIS_TFES: u32 = 1 << 30;
+
+impl HbaPort {
+    fn find_cmdslot(&self) -> Option<u32> {
+        let mut slots = self.sact.read() | self.ci.read();
+        for i in 0..32 {
+            if (slots & 1) == 0 {
+                return Some(i);
+            }
+            slots >>= 1;
+        }
+        debugln!("Cannot find free command list entry");
+        None
+    }
+
+    pub fn read(&mut self, pos: u64, count: u32, buf: &mut [u8]) -> bool {
+        self.is.write((-1i32) as u32);
+        let mut spin = 0;
+        if let Some(slot) = self.find_cmdslot() {
+            let cmd_header = unsafe { &mut *((self.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader).add(slot as usize) };
+            cmd_header.set_cfl((mem::size_of::<FisRegH2d>() / mem::size_of::<u32>()) as u8); // Command FIS size
+            cmd_header.set_w(false);        // Read from device
+            cmd_header.prdtl = (((count - 1) >> 4) + 1) as u16;
+
+            let mut cmd_table = HbaCmdTbl::with_entries(cmd_header.prdtl as usize);
+
+            let mut buf_addr = unsafe { translate_addr(buf.as_mut_ptr() as u64).unwrap() };
+            let mut count = count;
+            let prdt_entry = cmd_table.prdt_entries_mut(cmd_header.prdtl as usize);
+
+            for i in 0..cmd_header.prdtl as usize {
+                if i < cmd_header.prdtl as usize - 1 {
+                    prdt_entry[i].dba = buf_addr;
+                    prdt_entry[i].set_dbc(8 * 1024 - 1); // 8K bytes (this value should always be set to 1 less than the actual value)
+                    prdt_entry[i].set_i(true);
+                    buf_addr += 8 * 1024; // 8K bytes
+                    count -= 16;          // 16 sectors
+                } else {
+                    prdt_entry[i].dba = buf_addr;
+                    prdt_entry[i].set_dbc((count << 9) - 1);  // 512 bytes per sector
+                    prdt_entry[i].set_i(true);
+                }
+            }
+
+            let cmd_fis = unsafe { &mut *(cmd_table.cfis.as_ptr() as *mut FisRegH2d) };
+            cmd_fis.fis_type = FisType::FisTypeRegH2d as u8;
+            cmd_fis.set_c(1); // Command
+            cmd_fis.command = ATA_CMD_READ_DMA_EX;
+
+            cmd_fis.lba0 = pos as u8;
+            cmd_fis.lba1 = (pos >> 8) as u8;
+            cmd_fis.lba2 = (pos >> 16) as u8;
+            cmd_fis.lba3 = (pos >> 24) as u8;
+            cmd_fis.lba4 = (pos >> 32) as u8;
+            cmd_fis.lba5 = (pos >> 40) as u8;
+
+            cmd_fis.device = 1 << 6;  // LBA mode
+            cmd_fis.countl = (count & 0xFF) as u8;
+            cmd_fis.counth = ((count >> 8) & 0xFF) as u8;
+
+            cmd_header.ctba = unsafe { translate_addr(Box::into_raw(cmd_table) as u64).unwrap() };
+
+            // The below loop waits until the port is no longer busy before issuing a new command
+            while (self.tfd.read() & (ATA_DEV_BUSY | ATA_DEV_DRQ) as u32) > 0 && spin < 1000000 {
+                spin += 1;
+            }
+            if spin == 1000000 {
+                debugln!("Port is hung");
+                false
+            } else {
+                self.ci.update(|x| *x |= 1 << slot);  // 签发命令
+
+                debugln!("开始等待");
+                // Wait for completion
+                loop {
+                    // In some longer duration reads, it may be helpful to spin on the DPS bit
+                    // in the PxIS port field as well (1 << 5)
+                    if self.ci.read() & (1 << slot) == 0 {
+                        break;
+                    }
+                    if self.is.read() & HBA_PxIS_TFES > 0 {
+                        debugln!("Read disk error");
+                        return false;
+                    }
+                }
+
+                // Check again
+                if self.is.read() & HBA_PxIS_TFES > 0 {
+                    debugln!("Read disk error");
+                    false
+                } else {
+                    true
+                }
+            }
+        } else {
+            false
+        }
+    }
+}
+
+

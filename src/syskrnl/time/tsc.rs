@@ -25,10 +25,7 @@ pub fn init(){
     let calibration_time = 250_000;
     // 0.25 seconds
     let a = rdtsc();
-    debugln!("B");
     super::sleep(calibration_time as f64 / 1e6);
-    debugln!("C");
     let b = rdtsc();
-    debugln!("D");
     CLOCKS_PER_NANOSECOND.store((b - a) / calibration_time, Ordering::Relaxed);
 }
