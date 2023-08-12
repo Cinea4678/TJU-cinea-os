@@ -118,6 +118,6 @@ impl WindowManager {
 }
 
 pub fn init() {
-    let close_btn = read_all_from_path("/sys/ast/window_close_btn.bmp").expect("Read ASSETS fail");
+    let close_btn = read_all_from_path(String::from("/sys/ast/window_close_btn.bmp")).expect("Read ASSETS fail");
     ASSETS.write().insert(String::from("WindowCloseBtn"), resolve_32rgba(close_btn.as_slice()));
 }

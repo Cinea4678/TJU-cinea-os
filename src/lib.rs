@@ -16,7 +16,7 @@
 
 extern crate alloc;
 
-use bootloader::{BootInfo};
+use bootloader::{BootInfo, entry_point};
 
 pub mod syskrnl;
 
@@ -39,7 +39,6 @@ pub fn init(bootinfo: &'static BootInfo) {
     syskrnl::memory::init(bootinfo);
 
     // 启用各类IO设备
-    syskrnl::io::ata::init();
     syskrnl::io::ahci::init();
     syskrnl::time::init();
     syskrnl::task::keyboard::init();

@@ -19,13 +19,13 @@ use crate::syskrnl::fs::device::is_device;
 use crate::syskrnl::proc;
 use crate::syskrnl::proc::{file_handles, set_dir};
 
-use super::ata::AtaDeviceReader;
+use super::ahci::AhciDeviceReader;
 use super::oem::Cp437Converter;
 use super::time::CosTimeProvider;
 
 lazy_static! {
-    static ref DATA_DISK_FS: Mutex<fatfs::FileSystem<AtaDeviceReader, CosTimeProvider, Cp437Converter>> = {
-        let reader = AtaDeviceReader::new(0,1).unwrap();
+    static ref DATA_DISK_FS: Mutex<fatfs::FileSystem<AhciDeviceReader, CosTimeProvider, Cp437Converter>> = {
+        let reader = AhciDeviceReader::new(0).unwrap();
         let option = fatfs::FsOptions::new().oem_cp_converter(Cp437Converter).time_provider(CosTimeProvider);
         let fs = fatfs::FileSystem::new(reader,option);
         Mutex::new(fs.unwrap())
@@ -35,10 +35,10 @@ lazy_static! {
 #[allow(dead_code)]
 fn test() {
     let mut buf = [0u8; 100];
-    let mut reader = AtaDeviceReader::new(0, 1).unwrap();
+    let mut reader = AhciDeviceReader::new(0).unwrap();
     reader.read(&mut buf).unwrap();
 
-    println!("TEST ATA and ATA_READER:");
+    println!("TEST AHCI and AHCI_READER:");
     for n in buf { print!("{:02X} ", n) }
     println!();
 
@@ -354,6 +354,12 @@ mod tests {
     use super::fsapi::process_relative_path;
 
     #[test_case]
+    fn test_ahci(){
+        super::test();
+        println!("[ok]  FileSystem AHCI AHCI_Reader")
+    }
+
+    #[test_case]
     fn test_process_relative_path() {
         let mut test_set1 = vec!["foo", "bar"];
         let mut test_set2 = vec!["foo", ".", "bar"];
@@ -398,7 +404,7 @@ mod tests {
         // 测试路径为小写字母的情况
         let path = "/my_folder/my_file.txt";
         let result = path_standardize(path).unwrap();
-        assert_eq!(result, "/MY_FOLDER/MY_FILE.TXT");
+        assert_eq!(result, "/my_folder/my_file.txt");
 
         // 测试路径为大写字母的情况
         let path = "/MY_FOLDER/MY_FILE.TXT";
@@ -408,12 +414,12 @@ mod tests {
         // 测试路径包含特殊字符的情况
         let path = "/folder1/folder2/my_file.txt";
         let result = path_standardize(path).unwrap();
-        assert_eq!(result, "/FOLDER1/FOLDER2/MY_FILE.TXT");
+        assert_eq!(result, "/folder1/folder2/my_file.txt");
 
         // 测试路径包含相对路径的情况
         let path = "/folder1/./../folder2/my_file.txt";
         let result = path_standardize(path).unwrap();
-        assert_eq!(result, "/FOLDER2/MY_FILE.TXT");
+        assert_eq!(result, "/folder2/my_file.txt");
 
         // 测试空路径的情况
         let path = "";

@@ -20,7 +20,7 @@ pub fn get_font(name: &str) -> Option<Font<'static>> {
 
 pub fn load_font(name: &str, path: &str) -> Result<(), FileError> {
     if FONT_MAP.read().contains_key(name) { return Ok(()); }
-    let buf = read_all_from_path(path)?;
+    let buf = read_all_from_path(String::from(path))?;
     // log(format!("{:?}",&buf.as_slice()[buf.len()-10..buf.len()]).as_bytes());
     if let Some(font) = Font::try_from_vec(buf) {
         let mut lock = FONT_MAP.write();

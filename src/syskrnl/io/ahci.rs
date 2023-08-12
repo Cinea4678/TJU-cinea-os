@@ -1,7 +1,10 @@
 use alloc::boxed::Box;
+use alloc::collections::BTreeSet;
 use alloc::slice;
 use core::{mem, ptr};
 use core::alloc::Layout;
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 use volatile::Volatile;
 use x86_64::{PhysAddr, VirtAddr};
@@ -361,6 +364,7 @@ fn probe_port(abar: &HbaMem) {
             match dt {
                 AHCI_DEV_SATA => {
                     debugln!("SATA drive found at port {}", i);
+                    AVALIABLE_PORTS.lock().insert(i);
                 }
                 AHCI_DEV_SATAPI => {
                     debugln!("SATAPI drive found at port {}", i);
@@ -372,7 +376,7 @@ fn probe_port(abar: &HbaMem) {
                     debugln!("PM drive found at port {}", i);
                 }
                 _ => {
-                    debugln!("No drive found at port {}", i);
+                    // debugln!("No drive found at port {}", i);
                 }
             }
         }
@@ -415,7 +419,7 @@ const HBA_PxCMD_FR: u32 = 0x4000;
 #[allow(non_upper_case_globals)]
 const HBA_PxCMD_CR: u32 = 0x8000;
 
-fn port_rebase(port: &mut HbaPort, port_no: u64) {
+pub fn port_rebase(port: &mut HbaPort, port_no: u64) {
     // 停止命令引擎
     stop_cmd(port);
 
@@ -506,8 +510,7 @@ pub fn create_ahci_memory_mapping(
     }
 }
 
-const HBA_GHC_HR: u32 = 0x0001;
-// HBA Reset
+const HBA_GHC_HR: u32 = 0x0001; // HBA Reset
 const HBA_GHC_AE: u32 = 0x8000; // AHCI Enable
 
 fn start_hba(abar: &mut HbaMem) {
@@ -517,38 +520,31 @@ fn start_hba(abar: &mut HbaMem) {
     abar.ghc.update(|x| *x |= HBA_GHC_AE);
 }
 
+lazy_static! {
+    static ref AVALIABLE_PORTS: Mutex<BTreeSet<usize>> = Mutex::new(BTreeSet::new());
+}
+
+pub fn get_port(port_no: usize) -> Option<&'static mut HbaPort> {
+    if AVALIABLE_PORTS.lock().contains(&port_no) {
+        Some(&mut unsafe { &mut *(ABAR_ADDR as *mut HbaMem) }.ports[port_no])
+    } else {
+        None
+    }
+}
+
+pub fn translate_phys_address(addr: u64) -> u64 {
+    addr - AHCI_PHYSIC_BASE + AHCI_BASE
+}
+
 pub fn init() {
     let abar = unsafe { &mut *(ABAR_ADDR as *mut HbaMem) };
-
     probe_port(abar);
-
     start_hba(abar);
-
-    port_rebase(&mut abar.ports[0], 0);
-
-    debugln!("成功完成AHCI内存区域初始化\n\n开始读盘测试：端口0，扇区0，长度一扇区：");
-
-    let mut buf = [0u8; 512];
-    match abar.ports[0].read(0, 1, &mut buf) {
-        false => { debugln!("读盘失败QAQ") },
-        true => {
-            debugln!("读盘成功，请核对：{:?}", buf);
-        }
-    }
-
-    buf[0] = 0xCA;
-    buf[1] = 0xFE;
-    debugln!("开始写盘测试：端口0，扇区0，长度1扇区");
-    match abar.ports[0].write(0,1,&buf) {
-        false => {debugln!("写盘失败QAQ")},
-        true => {
-            debugln!("写盘成功，请前往VS Code查看")
-        }
-    }
 }
 
 const ATA_CMD_READ_DMA_EX: u8 = 0x25;
 const ATA_CMD_WRITE_DMA_EX: u8 = 0x35;
+const ATA_CMD_IDENTIFY_DEVICE: u8 = 0xEC;
 
 const ATA_DEV_BUSY: u8 = 0x80;
 const ATA_DEV_DRQ: u8 = 0x08;
@@ -732,6 +728,78 @@ impl HbaPort {
             }
         } else {
             false
+        }
+    }
+
+    pub fn get_max_sectors(&mut self) -> Option<u64> {
+        self.is.write((-1i32) as u32);
+        let mut spin = 0;
+        if let Some(slot) = self.find_cmdslot() {
+            let cmd_header = unsafe { &mut *((self.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader).add(slot as usize) };
+            cmd_header.set_cfl((mem::size_of::<FisRegH2d>() / mem::size_of::<u32>()) as u8); // Command FIS size
+            cmd_header.set_w(false);        // Read from device
+            cmd_header.prdtl = 1;
+
+            let mut cmd_table = HbaCmdTbl::with_entries(1);
+            let prdt_entry = cmd_table.prdt_entries_mut(1);
+
+            let mut buffer = [0u16; 256];
+            prdt_entry[0].dba = unsafe { translate_addr(buffer.as_mut_ptr() as u64).unwrap() };
+            prdt_entry[0].set_dbc(511);
+            prdt_entry[0].set_i(true);
+
+            let cmd_fis = unsafe { &mut *(cmd_table.cfis.as_ptr() as *mut FisRegH2d) };
+            cmd_fis.fis_type = FisType::FisTypeRegH2d as u8;
+            cmd_fis.set_c(1); // Command
+            cmd_fis.command = ATA_CMD_IDENTIFY_DEVICE;
+
+            cmd_fis.device = 1 << 6;  // LBA mode
+
+            cmd_header.ctba = unsafe { translate_addr(Box::into_raw(cmd_table) as u64).unwrap() };
+
+            // The below loop waits until the port is no longer busy before issuing a new command
+            while (self.tfd.read() & (ATA_DEV_BUSY | ATA_DEV_DRQ) as u32) > 0 && spin < 1000000 {
+                spin += 1;
+            }
+            if spin == 1000000 {
+                debugln!("Port is hung");
+                None
+            } else {
+                self.ci.update(|x| *x |= 1 << slot);  // 签发命令
+
+                // Wait for completion
+                loop {
+                    // In some longer duration reads, it may be helpful to spin on the DPS bit
+                    // in the PxIS port field as well (1 << 5)
+                    if self.ci.read() & (1 << slot) == 0 {
+                        break;
+                    }
+                    if self.is.read() & HBA_PxIS_TFES > 0 {
+                        debugln!("Identify disk error");
+                        return None;
+                    }
+                }
+
+                // Check again
+                if self.is.read() & HBA_PxIS_TFES > 0 {
+                    debugln!("Identify disk error");
+                    None
+                } else {
+                    if buffer[83] & (1 << 10) > 0 {
+                        let lba48_max_sectors = ((buffer[103] as u64) << 48) |
+                            ((buffer[102] as u64) << 32) |
+                            ((buffer[101] as u64) << 16) |
+                            (buffer[100] as u64);
+                        Some(lba48_max_sectors)
+                    } else {
+                        let max_sectors = ((buffer[60] as u64) << 16) |
+                            (buffer[61] as u64);
+                        Some(max_sectors)
+                    }
+                }
+            }
+        } else {
+            None
         }
     }
 }
