@@ -130,7 +130,7 @@ pub async fn mouse_handler() {
         MOUSE_CURSOR.lock().handle_change(package.delta_x, package.delta_y);
         if btn_down && !package.left_btn {
             btn_down = false;
-            // handler
+            MOUSE_CURSOR.lock().handle_click();
         } else if !btn_down && package.left_btn {
             btn_down = true;
         }

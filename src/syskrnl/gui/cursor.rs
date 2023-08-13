@@ -1,9 +1,11 @@
 use alloc::vec::Vec;
+
 use embedded_graphics::pixelcolor::Rgb888;
 use lazy_static::lazy_static;
 use spin::{Mutex, RwLock};
 
 use crate::syskrnl::graphic::{GL, HEIGHT, resolve_32rgba, WIDTH};
+use crate::syskrnl::gui::WINDOW_MANAGER;
 
 const CURSOR: &[u8] = include_bytes!("../../../assets/cursor.bmp");
 lazy_static! {
@@ -53,5 +55,8 @@ impl MouseCursor {
             self.last_x = self.x;
             self.last_y = self.y;
         }
+    }
+    pub fn handle_click(&mut self) {
+        WINDOW_MANAGER.lock().handle_mouse_click(self.x as usize, self.y as usize);
     }
 }

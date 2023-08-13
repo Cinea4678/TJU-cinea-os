@@ -25,7 +25,7 @@ use crate::syskrnl::schedule::roundroll::RoundRollScheduler;
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
-const MAX_PROCS: usize = 4;
+const MAX_PROCS: usize = 16;
 const MAX_PROC_SIZE: usize = 10 << 20;
 #[allow(dead_code)]
 const MAX_FILE_HANDLES: usize = 64;
