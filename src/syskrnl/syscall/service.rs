@@ -7,8 +7,9 @@ use embedded_graphics::pixelcolor::raw::RawU24;
 use embedded_graphics::pixelcolor::Rgb888;
 
 use cinea_os_sysapi::ExitCode;
+use cinea_os_sysapi::fs::read_all_from_path;
 use cinea_os_sysapi::syscall::PanicInfo;
-use cinea_os_sysapi::window::WindowGraphicMemory;
+use cinea_os_sysapi::gui::WindowGraphicMemory;
 
 use crate::{debugln, print, println, syscall_deserialize, syscall_serialized_ret, syskrnl};
 use crate::syskrnl::gui::font;
@@ -39,6 +40,24 @@ pub fn spawn(number: usize, args_ptr: usize, args_len: usize, args_cap: usize) -
         code
     } else {
         ExitCode::Success
+    }
+}
+
+pub fn spawn_from_path(ptr: usize) -> usize {
+    let obj: (String, Vec<String>) = syscall_deserialize!(ptr);
+
+    if let Ok(program_bytes) = read_all_from_path(obj.0.as_str()) {
+        // 为了兼容旧代码，姑且做一层转换吧
+        let trans_args: Vec<_> = obj.1.iter().map(|x| (x.as_ptr() as usize, x.len())).collect();
+        let (a, b, c) = trans_args.into_raw_parts();
+
+        if let Err(_) = Process::spawn(program_bytes.as_slice(), a as usize, b, c) {
+            syscall_serialized_ret!(&false)
+        } else {
+            syscall_serialized_ret!(&true)
+        }
+    } else {
+        syscall_serialized_ret!(&false)
     }
 }
 

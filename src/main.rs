@@ -20,7 +20,7 @@ use cinea_os::syskrnl::task::keyboard::key_presses_handler;
 use cinea_os::syskrnl::task::mouse::mouse_handler;
 use cinea_os::syskrnl::task::Task;
 use cinea_os::syskrnl::gui::font::load_font;
-use cinea_os_sysapi::window;
+use cinea_os_sysapi::gui;
 
 #[cfg(not(test))]
 entry_point!(kernel_main);

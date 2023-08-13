@@ -14,7 +14,7 @@ use volatile::Volatile;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB};
 use x86_64::VirtAddr;
-use cinea_os_sysapi::window::WindowGraphicMemory;
+use cinea_os_sysapi::gui::WindowGraphicMemory;
 
 use crate::{debugln, rgb888};
 use crate::syskrnl::graphic::color::alpha_mix;

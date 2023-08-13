@@ -39,7 +39,11 @@ taffy: src/bin/taffy.rs
 	$(RUSTC) $(RUSTFLAGS) --bin taffy
 	touch target/echo
 
-bin: hello nothing shell infprint echo taffy
+clock: src/bin/clock.rs
+	$(RUSTC) $(RUSTFLAGS) --bin clock
+	touch target/echo
+
+bin: hello nothing shell infprint echo taffy clock
 	basename -s .rs src/bin/*.rs | xargs -I {} \
 		cp target/x86_64-cinea_os/$(mode)/{} ../../dsk/bin/{}
 	if [ "$(STRIP)" = "true" ] && [ `arch` = "x86_64" ]; then \

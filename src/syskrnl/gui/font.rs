@@ -7,7 +7,7 @@ use rusttype::{Font, HMetrics, point, Rect, Scale, ScaledGlyph};
 use spin::RwLock;
 
 use cinea_os_sysapi::fs::{FileError, read_all_from_path};
-use cinea_os_sysapi::window::{WINDOW_CONTENT_HEIGHT, WINDOW_CONTENT_WIDTH, WindowGraphicMemory};
+use cinea_os_sysapi::gui::{WINDOW_CONTENT_HEIGHT, WINDOW_CONTENT_WIDTH, WindowGraphicMemory};
 
 lazy_static! {
     static ref FONT_MAP: RwLock<BTreeMap<String, Font<'static>>> = {

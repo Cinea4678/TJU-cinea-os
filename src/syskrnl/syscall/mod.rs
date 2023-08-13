@@ -65,6 +65,9 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
             READ_PATH => {
                 service::read_path(arg1)
             }
+            SPAWN_FROM_PATH => {
+                service::spawn_from_path(arg1)
+            }
             CREATE_WINDOW => {
                 service::create_window(arg1)
             }

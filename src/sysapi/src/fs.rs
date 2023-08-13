@@ -4,6 +4,7 @@ use alloc::vec::Vec;
 use core::fmt::Debug;
 
 use bitflags::bitflags;
+use postcard::Error;
 use serde::{Deserialize, Serialize};
 use ufmt::uDebug;
 
@@ -455,4 +456,12 @@ pub fn read_all_from_path(path: &str) -> Result<Vec<u8>, FileError> {
     let mut buf = vec![0u8; metadata.len() as usize];
     read(handle, buf.as_mut_slice())?;
     return Ok(buf);
+}
+
+pub fn spawn_from_path(path: &str, args: Vec<String>) -> bool {
+    let ret:Result<bool,_> = syscall_with_serdeser!(SPAWN_FROM_PATH,(String::from(path),args));
+    match ret {
+        Ok(true) => true,
+        _ => false
+    }
 }

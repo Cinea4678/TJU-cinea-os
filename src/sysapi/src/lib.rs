@@ -47,7 +47,7 @@ pub mod fs;
 pub mod syscall;
 pub mod time;
 pub mod stdin;
-pub mod window;
+pub mod gui;
 
 /// 进程退出代码
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]

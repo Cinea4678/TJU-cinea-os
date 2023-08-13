@@ -10,8 +10,8 @@ use lazy_static::lazy_static;
 use spin::{Mutex, RwLock};
 use cinea_os_sysapi::fs::read_all_from_path;
 
-pub use cinea_os_sysapi::window::{WINDOW_HEIGHT, WINDOW_WIDTH};
-use cinea_os_sysapi::window::WindowGraphicMemory;
+pub use cinea_os_sysapi::gui::{WINDOW_HEIGHT, WINDOW_WIDTH};
+use cinea_os_sysapi::gui::WindowGraphicMemory;
 use crate::rgb888;
 use crate::syskrnl::graphic::{GL, resolve_32rgba};
 use crate::syskrnl::{graphic, proc};
@@ -84,7 +84,8 @@ impl WindowManager {
     fn draw_window_frame(&self, x: usize, y: usize, window: &Window, writer: &mut graphic::Writer) {
         writer.display_rect(x, y, WINDOW_WIDTH, 20, rgb888!(0x262A10u32));
         writer.display_resolved(x + 2, y + 2, ASSETS.read().get("WindowCloseBtn").expect("Read ASSETS Fail"));
-        unsafe { writer.display_font_string(window.title.as_str(), x + 2, y + 20, 16.0, 16, rgb888!(0xFFFFFFu32)) };
+        writer.display_resolved(x + 2, y + 20, ASSETS.read().get("WindowMoveBtn").expect("Read ASSETS Fail"));
+        unsafe { writer.display_font_string(window.title.as_str(), x + 2, y + 40, 16.0, 16, rgb888!(0xFFFFFFu32)) };
         writer.display_rect(x + 20, y, 2, WINDOW_HEIGHT - 20, rgb888!(0x262A10u32));
         writer.display_rect(x + 20, y + WINDOW_WIDTH - 2, 2, WINDOW_HEIGHT - 20, rgb888!(0x262A10u32));
         writer.display_rect(x + WINDOW_HEIGHT - 2, y, WINDOW_WIDTH, 2, rgb888!(0x262A10u32));
@@ -122,5 +123,7 @@ impl WindowManager {
 
 pub fn init() {
     let close_btn = read_all_from_path("/sys/ast/window_close_btn.bmp").expect("Read ASSETS fail");
+    let move_btn = read_all_from_path("/sys/ast/window_move_btn.bmp").expect("Read ASSETS fail");
     ASSETS.write().insert(String::from("WindowCloseBtn"), resolve_32rgba(close_btn.as_slice()));
+    ASSETS.write().insert(String::from("WindowMoveBtn"), resolve_32rgba(move_btn.as_slice()));
 }

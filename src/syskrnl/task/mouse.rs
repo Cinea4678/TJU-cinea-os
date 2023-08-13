@@ -122,10 +122,19 @@ impl Stream for PackageStream {
 pub async fn mouse_handler() {
     let mut packages = PackageStream::new();
 
+    let mut btn_down = false;
+
     while let Some(package) = packages.next().await {
         // 处理package
         // debugln!("Mouse Event! x:{}, y:{}",package.delta_x,package.delta_y)
         MOUSE_CURSOR.lock().handle_change(package.delta_x, package.delta_y);
+        if btn_down && !package.left_btn {
+            btn_down = false;
+            // handler
+        } else if !btn_down && package.left_btn {
+            btn_down = true;
+        }
+
     }
 }
 
