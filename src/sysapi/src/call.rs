@@ -73,6 +73,9 @@ pub const READ: usize = 0x24;
 pub const WRITE_PATH: usize = 0x25;
 pub const READ_PATH: usize = 0x26;
 pub const CREATE_WINDOW: usize = 0x30;
+pub const DISPLAY_FONT_STRING: usize = 0x31;
+pub const LOAD_FONT: usize = 0x32;
+pub const REMOVE_FONT: usize = 0x33;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SysCallResult {

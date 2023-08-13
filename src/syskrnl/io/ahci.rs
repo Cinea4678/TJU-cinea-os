@@ -3,14 +3,14 @@ use alloc::collections::BTreeSet;
 use alloc::slice;
 use core::{mem, ptr};
 use core::alloc::Layout;
+
 use lazy_static::lazy_static;
 use spin::Mutex;
-
 use volatile::Volatile;
 use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
 
-use crate::debugln;
+use crate::{debugln, println};
 use crate::syskrnl::io;
 use crate::syskrnl::memory::translate_addr;
 
@@ -404,8 +404,8 @@ fn check_type(port: &HbaPort) -> u8 {
     }
 }
 
-const AHCI_BASE: u64 = 0xffffffff_00400000;
-const AHCI_PHYSIC_BASE: u64 = 0x00000000_00400000;    // 4M
+const AHCI_BASE: u64 = 0x0100_0000;
+const AHCI_PHYSIC_BASE: u64 = 0x0100_0000;
 
 #[allow(non_upper_case_globals)]
 const HBA_PxCMD_ST: u32 = 0x0001;
@@ -566,6 +566,10 @@ impl HbaPort {
     }
 
     pub fn read(&mut self, pos: u64, count: u32, buf: &mut [u8]) -> bool {
+        if count as usize * 512 > buf.len() {
+            panic!("错误的缓冲区大小")
+        }
+
         self.is.write((-1i32) as u32);
         let mut spin = 0;
         if let Some(slot) = self.find_cmdslot() {
@@ -610,7 +614,8 @@ impl HbaPort {
             cmd_fis.countl = (count & 0xFF) as u8;
             cmd_fis.counth = ((count >> 8) & 0xFF) as u8;
 
-            cmd_header.ctba = unsafe { translate_addr(Box::into_raw(cmd_table) as u64).unwrap() };
+            let cmd_table_addr = Box::into_raw(cmd_table) as u64;
+            cmd_header.ctba = unsafe { translate_addr(cmd_table_addr).unwrap() };
 
             // The below loop waits until the port is no longer busy before issuing a new command
             while (self.tfd.read() & (ATA_DEV_BUSY | ATA_DEV_DRQ) as u32) > 0 && spin < 1000000 {
@@ -618,6 +623,7 @@ impl HbaPort {
             }
             if spin == 1000000 {
                 debugln!("Port is hung");
+                let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                 false
             } else {
                 self.ci.update(|x| *x |= 1 << slot);  // 签发命令
@@ -631,9 +637,12 @@ impl HbaPort {
                     }
                     if self.is.read() & HBA_PxIS_TFES > 0 {
                         debugln!("Read disk error");
+                        let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                         return false;
                     }
                 }
+
+                let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
 
                 // Check again
                 if self.is.read() & HBA_PxIS_TFES > 0 {
@@ -649,6 +658,10 @@ impl HbaPort {
     }
 
     pub fn write(&mut self, pos: u64, count: u32, buf: &[u8]) -> bool {
+        if count as usize * 512 > buf.len() {
+            panic!("错误的缓冲区大小")
+        }
+
         self.is.write((-1i32) as u32);
         let mut spin = 0;
         if let Some(slot) = self.find_cmdslot() {
@@ -693,7 +706,8 @@ impl HbaPort {
             cmd_fis.countl = (count & 0xFF) as u8;
             cmd_fis.counth = ((count >> 8) & 0xFF) as u8;
 
-            cmd_header.ctba = unsafe { translate_addr(Box::into_raw(cmd_table) as u64).unwrap() };
+            let cmd_table_addr = Box::into_raw(cmd_table) as u64;
+            cmd_header.ctba = unsafe { translate_addr(cmd_table_addr).unwrap() };
 
             // The below loop waits until the port is no longer busy before issuing a new command
             while (self.tfd.read() & (ATA_DEV_BUSY | ATA_DEV_DRQ) as u32) > 0 && spin < 1000000 {
@@ -701,6 +715,7 @@ impl HbaPort {
             }
             if spin == 1000000 {
                 debugln!("Port is hung");
+                let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                 false
             } else {
                 self.ci.update(|x| *x |= 1 << slot);  // 签发命令
@@ -714,9 +729,12 @@ impl HbaPort {
                     }
                     if self.is.read() & HBA_PxIS_TFES > 0 {
                         debugln!("Write disk error");
+                        let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                         return false;
                     }
                 }
+
+                let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
 
                 // Check again
                 if self.is.read() & HBA_PxIS_TFES > 0 {
@@ -755,7 +773,8 @@ impl HbaPort {
 
             cmd_fis.device = 1 << 6;  // LBA mode
 
-            cmd_header.ctba = unsafe { translate_addr(Box::into_raw(cmd_table) as u64).unwrap() };
+            let cmd_table_addr = Box::into_raw(cmd_table) as u64;
+            cmd_header.ctba = unsafe { translate_addr(cmd_table_addr).unwrap() };
 
             // The below loop waits until the port is no longer busy before issuing a new command
             while (self.tfd.read() & (ATA_DEV_BUSY | ATA_DEV_DRQ) as u32) > 0 && spin < 1000000 {
@@ -763,6 +782,7 @@ impl HbaPort {
             }
             if spin == 1000000 {
                 debugln!("Port is hung");
+                let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                 None
             } else {
                 self.ci.update(|x| *x |= 1 << slot);  // 签发命令
@@ -776,9 +796,12 @@ impl HbaPort {
                     }
                     if self.is.read() & HBA_PxIS_TFES > 0 {
                         debugln!("Identify disk error");
+                        let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                         return None;
                     }
                 }
+
+                let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
 
                 // Check again
                 if self.is.read() & HBA_PxIS_TFES > 0 {

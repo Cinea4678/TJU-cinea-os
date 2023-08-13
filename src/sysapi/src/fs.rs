@@ -448,10 +448,10 @@ pub fn info(path: &str) -> Result<Metadata, FileError> {
     }
 }
 
-pub fn read_all_from_path(path: String) -> Result<Vec<u8>, FileError> {
-    let metadata = info(path.as_str())?;
+pub fn read_all_from_path(path: &str) -> Result<Vec<u8>, FileError> {
+    let metadata = info(path)?;
     if !metadata.is_file() { return Err(NotAFileError); }
-    let handle = open(path.as_str(), false)?;
+    let handle = open(path, false)?;
     let mut buf = vec![0u8; metadata.len() as usize];
     read(handle, buf.as_mut_slice())?;
     return Ok(buf);

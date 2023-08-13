@@ -67,6 +67,7 @@ dependencies = [
  "cinea-os-sysapi",
  "embedded-graphics",
  "lazy_static",
+ "rusttype",
  "ryu",
  "serde_json",
  "spin 0.9.8",

@@ -47,7 +47,6 @@ pub mod fs;
 pub mod syscall;
 pub mod time;
 pub mod stdin;
-pub mod font;
 pub mod window;
 
 /// 进程退出代码

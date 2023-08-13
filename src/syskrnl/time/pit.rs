@@ -1,9 +1,12 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicU8, AtomicUsize, Ordering};
+
 use x86_64::instructions::interrupts;
-use crate::{syskrnl};
+use x86_64::instructions::interrupts::without_interrupts;
+
+use crate::syskrnl;
 use crate::syskrnl::graphic::GD;
-use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
 use crate::syskrnl::gui::{RENDER_OK, WINDOW_MANAGER};
+use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
 
 /// `PIT_FREQUENCY`的值是x86架构默认的
 pub const PIT_FREQUENCY: f64 = 3_579_545.0 / 3.0; // 1_193_181.666 Hz
@@ -15,6 +18,7 @@ const PIT_INTERVAL: f64 = (PIT_DIVIDER as f64) / PIT_FREQUENCY;
 pub const PIT_PER_SECOND: usize = 1000;
 
 static PIT_TICKS: AtomicUsize = AtomicUsize::new(0);
+static RENDER: AtomicU8 = AtomicU8::new(0);
 
 /// 设置PIT频率分频器
 ///
@@ -38,13 +42,31 @@ pub fn set_pit_frequency_divider(divider: u16, channel: u8){
 
 /// PIT中断处理程序
 pub fn pit_interrupt_handler(){
-    PIT_TICKS.fetch_add(1,Ordering::Relaxed);
+    let time = PIT_TICKS.fetch_add(1, Ordering::Relaxed);
 
     // 每1/25秒渲染一次
-    if RENDER_OK.load(Ordering::Relaxed) && PIT_TICKS.load(Ordering::Relaxed) % 40 == 0{
-        MOUSE_CURSOR.lock().update_mouse();
-        WINDOW_MANAGER.lock().render();
-        GD.lock().render(0,0,600,800);
+    if RENDER_OK.load(Ordering::Relaxed) && time % 40 == 0 {
+        RENDER.store(7, Ordering::Relaxed);
+    }
+
+    let mut render_flag = RENDER.load(Ordering::Relaxed);
+
+    if render_flag > 0 {
+        without_interrupts(|| {
+            if let Some(mut mouse_lock) = MOUSE_CURSOR.try_lock() {
+                mouse_lock.update_mouse();
+                render_flag &= !4;
+            }
+            if let Some(mut window_lock) = WINDOW_MANAGER.try_lock() {
+                window_lock.render();
+                render_flag &= !2;
+            }
+            if let Some(mut gd_lock) = GD.try_lock() {
+                gd_lock.render(0, 0, 600, 800);
+                render_flag &= !1;
+            }
+        });
+        RENDER.store(render_flag, Ordering::Relaxed);
     }
 }
 

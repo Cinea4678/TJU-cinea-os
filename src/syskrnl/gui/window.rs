@@ -1,14 +1,17 @@
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec;
 use alloc::vec::Vec;
 use core::ops::Deref;
+use core::pin::Pin;
 use embedded_graphics::pixelcolor::Rgb888;
 use lazy_static::lazy_static;
 use spin::{Mutex, RwLock};
 use cinea_os_sysapi::fs::read_all_from_path;
 
 pub use cinea_os_sysapi::window::{WINDOW_HEIGHT, WINDOW_WIDTH};
+use cinea_os_sysapi::window::WindowGraphicMemory;
 use crate::rgb888;
 use crate::syskrnl::graphic::{GL, resolve_32rgba};
 use crate::syskrnl::{graphic, proc};
@@ -98,7 +101,7 @@ impl WindowManager {
                 let layout = &self.layout.layouts[i];
                 self.draw_window_frame(layout.0, layout.1, window, &mut lock);
                 let data = unsafe {
-                    &*(window.mem_addr as *const Vec<Vec<Rgb888>>)
+                    &*(window.mem_addr as *const WindowGraphicMemory)
                 };
                 lock.display_from_copied(layout.0 + 20, layout.1 + 2, data);
             }
@@ -109,7 +112,7 @@ impl WindowManager {
                 let window = &self.windows[self.highlight];
                 self.draw_window_frame(layout.0, layout.1, window, &mut lock);
                 let data = unsafe {
-                    &*(window.mem_addr as *const Vec<Vec<Rgb888>>)
+                    &*(window.mem_addr as *const WindowGraphicMemory)
                 };
                 lock.display_from_copied(layout.0 + 20, layout.1 + 2, data);
             }
@@ -118,6 +121,6 @@ impl WindowManager {
 }
 
 pub fn init() {
-    let close_btn = read_all_from_path(String::from("/sys/ast/window_close_btn.bmp")).expect("Read ASSETS fail");
+    let close_btn = read_all_from_path("/sys/ast/window_close_btn.bmp").expect("Read ASSETS fail");
     ASSETS.write().insert(String::from("WindowCloseBtn"), resolve_32rgba(close_btn.as_slice()));
 }

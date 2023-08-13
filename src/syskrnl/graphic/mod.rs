@@ -3,6 +3,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cmp::min;
 use core::fmt;
+use core::pin::Pin;
 
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use lazy_static::lazy_static;
@@ -13,6 +14,7 @@ use volatile::Volatile;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB};
 use x86_64::VirtAddr;
+use cinea_os_sysapi::window::WindowGraphicMemory;
 
 use crate::{debugln, rgb888};
 use crate::syskrnl::graphic::color::alpha_mix;
@@ -298,7 +300,7 @@ impl Writer {
         }
     }
 
-    pub fn display_from_copied(&mut self, x: usize, y: usize, data: &Vec<Vec<Rgb888>>) {
+    pub fn display_from_copied(&mut self, x: usize, y: usize, data: &WindowGraphicMemory) {
         for (i, c) in data.iter().enumerate() {
             for (j, d) in c.iter().enumerate() {
                 self.display_pixel_safe(x + i, y + j, *d);

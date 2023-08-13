@@ -3,7 +3,6 @@
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
-
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use fatfs::{DirEntry, Read, Seek, SeekFrom, Write};
@@ -295,14 +294,15 @@ fn read_path(path: &str, store: &mut [u8]) -> Result<usize, FileError> {
     let mut file = file.to_file();
 
     if file.seek(SeekFrom::Start(0)).is_err() { return Err(OSError); }
-    let mut buf = [0u8; 8192];
+    let mut buf = [0u8; 1024];
     let mut pos = 0usize;
     while let Ok(len) = file.read(&mut buf) {
-        if len == 0 {
-            return Ok(pos);
-        } else {
-            store[pos..pos + len].copy_from_slice(&buf[0..len]);
+        if len > 0 {
+            store[pos..pos + len].copy_from_slice(&buf[..len]);
             pos += len;
+            buf.fill(0);
+        } else {
+            return Ok(pos);
         }
     }
     Err(OSError)

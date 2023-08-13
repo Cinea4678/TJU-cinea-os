@@ -8,6 +8,7 @@ pub mod status_bar;
 pub mod cursor;
 pub mod panic;
 pub mod window;
+pub mod font;
 
 pub use window::WINDOW_MANAGER;
 
@@ -28,7 +29,7 @@ pub fn init() {
     show_command_area();
     show_status_bar();
     MOUSE_CURSOR.lock().print_manually();
-    
+
     window::init();
 
     RENDER_OK.store(true, Ordering::Relaxed);

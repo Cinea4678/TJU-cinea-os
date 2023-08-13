@@ -11,6 +11,7 @@
 #![feature(custom_test_frameworks)]
 #![feature(vec_into_raw_parts)]
 #![feature(new_uninit)]
+#![feature(let_chains)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 

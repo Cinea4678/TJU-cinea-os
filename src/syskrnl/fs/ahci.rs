@@ -1,5 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
+use core::sync::atomic::AtomicUsize;
+use core::sync::atomic::Ordering::Relaxed;
 
 use fatfs::{IoBase, Read, Seek, SeekFrom, Write};
 
@@ -17,7 +19,10 @@ pub struct AhciDeviceReader {
     max_sector: u64,
     position: usize,
     cache: Vec<u8>,
-    port: &'static mut HbaPort,
+    cache_valid: bool,
+    cache_start: u64,
+    cache_size: usize,
+    port: usize,
 }
 
 fn sector(position: usize) -> u64 {
@@ -39,7 +44,10 @@ impl AhciDeviceReader {
                     max_sector,
                     position: 0,
                     cache,
-                    port,
+                    cache_valid: false,
+                    cache_start: 0,
+                    cache_size: 0,
+                    port: port as *mut _ as usize,
                 })
             } else {
                 Err(())
@@ -68,10 +76,21 @@ impl Read for AhciDeviceReader {
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
         if self.position + buf.len() > self.max_sector as usize * SECTOR_SIZE { return Err(()); };
 
+        let port = unsafe { &mut *(self.port as *mut HbaPort) };
+
         // 计算总共需要读取的扇区
         let sectors = (offset(self.position) + buf.len()) / SECTOR_SIZE + 1;
         let read_times = sectors / CACHE_SECTORS as usize;
         let start_sector = sector(self.position);
+
+        if self.cache_valid {
+            if start_sector == self.cache_start && read_times == 0 {
+                let next_copy = buf.len();
+                buf.copy_from_slice(&self.cache.as_slice()[offset(self.position)..offset(self.position) + next_copy]);
+                self.position += next_copy;
+                return Ok(());
+            }
+        }
 
         let mut buf_pos = 0;
         let mut last_read = 0;
@@ -80,14 +99,19 @@ impl Read for AhciDeviceReader {
             self.cache.fill(0);
             if i == read_times {
                 // 最后一次
-                if !self.port.read(start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) as u32, self.cache.as_mut_slice()) {
+                // debugln!("Read pos:{:#x}, count:{}, buf_len:{}", start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) * 512, self.cache.as_mut_slice().len());
+                if !port.read(start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) as u32, self.cache.as_mut_slice()) {
                     return Err(());
                 }
+
+                self.cache_start = start_sector + i as u64 * CACHE_SECTORS;
                 last_read = (sectors % CACHE_SECTORS as usize) * SECTOR_SIZE;
             } else {
-                if !self.port.read(start_sector + i as u64 * CACHE_SECTORS, CACHE_SECTORS as u32, self.cache.as_mut_slice()) {
+                // debugln!("Read pos:{:#x}, count:{}, buf_len:{}", start_sector + i as u64 * CACHE_SECTORS, CACHE_SECTORS * 512, self.cache.as_mut_slice().len());
+                if !port.read(start_sector + i as u64 * CACHE_SECTORS, CACHE_SECTORS as u32, self.cache.as_mut_slice()) {
                     return Err(());
                 }
+                self.cache_start = start_sector + i as u64 * CACHE_SECTORS;
                 last_read = CACHE_SIZE;
             }
             if i == 0 {
@@ -102,6 +126,7 @@ impl Read for AhciDeviceReader {
         }
 
         self.position += buf.len();
+        self.cache_valid = true;
 
         Ok(())
     }
@@ -116,6 +141,10 @@ impl Write for AhciDeviceReader{
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
         if self.position + buf.len() > self.max_sector as usize * SECTOR_SIZE { return Err(()); };
+
+        self.cache_valid = false;
+
+        let port = unsafe { &mut *(self.port as *mut HbaPort) };
 
         // 计算总共需要写入的扇区
         let sectors = (offset(self.position) + buf.len()) / SECTOR_SIZE + 1;
@@ -138,12 +167,12 @@ impl Write for AhciDeviceReader{
             }
             if i == write_times {
                 // 最后一次
-                if !self.port.write(start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) as u32, self.cache.as_slice()) {
+                if !port.write(start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) as u32, self.cache.as_slice()) {
                     return Err(());
                 }
                 last_write = (sectors % CACHE_SECTORS as usize) * SECTOR_SIZE;
             } else {
-                if !self.port.write(start_sector + i as u64 * CACHE_SECTORS, CACHE_SECTORS as u32, self.cache.as_slice()) {
+                if !port.write(start_sector + i as u64 * CACHE_SECTORS, CACHE_SECTORS as u32, self.cache.as_slice()) {
                     return Err(());
                 }
                 last_write = CACHE_SIZE;

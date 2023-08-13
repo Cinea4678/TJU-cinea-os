@@ -112,7 +112,6 @@ pub fn spawn(number: usize, args: &[&str]) -> Result<(), ExitCode> {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct PanicInfoLocation {
-    file: String,
     line: u32,
     col: u32,
 }
@@ -126,12 +125,10 @@ pub struct PanicInfo {
 pub fn panic(raw_info: &core::panic::PanicInfo) -> usize {
     log(b"An exception in UserSpace occurred!\n");
     let mut location = PanicInfoLocation {
-        file: String::new(),
         line: 0,
         col: 0,
     };
     if let Some(raw_location) = raw_info.location() {
-        location.file = String::from(raw_location.file());
         location.line = raw_location.line();
         location.col = raw_location.column();
     }

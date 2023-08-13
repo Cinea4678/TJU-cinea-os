@@ -1,13 +1,17 @@
 use alloc::string::String;
 use alloc::vec::Vec;
-
 use core::ptr::slice_from_raw_parts_mut;
 use core::sync::atomic::Ordering;
 
+use embedded_graphics::pixelcolor::raw::RawU24;
+use embedded_graphics::pixelcolor::Rgb888;
+
 use cinea_os_sysapi::ExitCode;
 use cinea_os_sysapi::syscall::PanicInfo;
+use cinea_os_sysapi::window::WindowGraphicMemory;
 
 use crate::{debugln, print, println, syscall_deserialize, syscall_serialized_ret, syskrnl};
+use crate::syskrnl::gui::font;
 use crate::syskrnl::proc::Process;
 
 pub fn exit(code: ExitCode) -> ExitCode {
@@ -162,4 +166,18 @@ pub fn panic(ptr: usize) -> usize {
 pub fn create_window(ptr: usize) -> usize {
     let obj: (String, usize) = syscall_deserialize!(ptr);
     syscall_serialized_ret!(&syskrnl::gui::WINDOW_MANAGER.lock().create_window(obj.0.as_str(),obj.1))
+}
+
+pub fn display_font_string(ptr: usize) -> usize {
+    let obj: (usize, String, String, usize, usize, f32, usize, u32) = syscall_deserialize!(ptr);
+    let window = unsafe { &mut *(obj.0 as *mut WindowGraphicMemory) };
+    let color = Rgb888::from(RawU24::new(obj.7));
+    font::display_font_string(window, obj.1.as_str(), obj.2.as_str(), obj.3, obj.4, obj.5, obj.6, color);
+    0
+}
+
+pub fn load_font(ptr: usize) -> usize {
+    let obj: (String, String) = syscall_deserialize!(ptr);
+    let ret = font::load_font(obj.0.as_str(),obj.1.as_str());
+    syscall_serialized_ret!(&ret.is_ok())
 }

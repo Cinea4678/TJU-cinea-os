@@ -68,6 +68,12 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
             CREATE_WINDOW => {
                 service::create_window(arg1)
             }
+            DISPLAY_FONT_STRING => {
+                service::display_font_string(arg1)
+            }
+            LOAD_FONT => {
+                service::load_font(arg1)
+            }
             _ => panic!("unknown syscall id: {}", syscall_id),
         }
     })
