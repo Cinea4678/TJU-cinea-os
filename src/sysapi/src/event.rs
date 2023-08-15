@@ -1,10 +1,12 @@
 use core::arch::asm;
 
-use crate::event_call;
+use crate::{event_call, syscall};
+use crate::call::{GUI_SUBSCRIBE_KEYBOARD, GUI_SUBSCRIBE_TIME_UPDATE, REGISTER_TIMER};
 use crate::syscall::log;
 
 pub const KEYBOARD_INPUT: usize = 0x00;
 pub const SLEEP_WAKEUP: usize = 0x01;
+pub const GUI_PROGRAM: usize = 0x02;
 
 pub fn sleep(million_seconds: usize) {
     unsafe { event_call!(SLEEP_WAKEUP, million_seconds); }
@@ -19,6 +21,38 @@ pub fn getch(display_back: bool) -> char {
         }
         res
     }
+}
+
+pub const GUI_EVENT_EXIT: u16 = 0x00;
+pub const GUI_EVENT_MOUSE_CLICK: u16 = 0x02;
+pub const GUI_EVENT_TIME_UPDATE: u16 = 0x03;
+pub const GUI_EVENT_UNDK_KEY: u16 = 0x04;
+
+pub fn gui_event_make_ret(code: u16, arg0: u16, arg1: u16, arg2: u16) -> usize {
+    ((code as usize) << 48) + ((arg2 as usize) << 32) + ((arg1 as usize) << 16) + (arg0 as usize)
+}
+
+pub fn gui_event_solve_ret(ret: usize) -> (u16, u16, u16, u16) {
+    ((ret >> 48) as u16, ret as u16, (ret >> 16) as u16, (ret >> 32) as u16)
+}
+
+pub fn gui_sleep(million_seconds: usize) {
+    unsafe { syscall!(REGISTER_TIMER, million_seconds) };
+}
+
+pub fn wait_gui_event() -> (u16, u16, u16, u16) {
+    unsafe {
+        let res = event_call!(GUI_PROGRAM);
+        gui_event_solve_ret(res)
+    }
+}
+
+pub fn register_time_update() {
+    unsafe { syscall!(GUI_SUBSCRIBE_TIME_UPDATE) }; // 注册时间更新事件
+}
+
+pub fn register_gui_keyboard() {
+    unsafe { syscall!(GUI_SUBSCRIBE_KEYBOARD) }; // 注册时间更新事件
 }
 
 #[macro_export]

@@ -72,7 +72,7 @@ impl LinkedListAllocator {
     unsafe fn add_free_region(&mut self, addr: usize, size: usize) {
         // 确保这个空闲区域和链表是适配的
         assert_eq!(align_up(addr, mem::align_of::<ListNode>()), addr);
-        assert!(size>= mem::size_of::<ListNode>());
+        assert!(size >= mem::size_of::<ListNode>());
 
         // 先寻找左右两边是否也为空闲
 

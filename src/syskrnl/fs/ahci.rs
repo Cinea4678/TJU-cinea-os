@@ -162,7 +162,7 @@ impl Write for AhciDeviceReader{
                 buf_pos += next_copy;
             } else {
                 let next_copy = (last_write).min(buf.len() - buf_pos);
-                &(self.cache.as_mut_slice()[buf_pos..]).copy_from_slice(&buf[0..next_copy]);
+                let _ = &(self.cache.as_mut_slice()[buf_pos..]).copy_from_slice(&buf[0..next_copy]);
                 buf_pos += next_copy;
             }
             if i == write_times {

@@ -85,8 +85,9 @@ pub fn log_debug(buf: &[u8]) -> Option<usize> {
     }
 }
 
-pub fn exit(code: ExitCode) {
+pub fn exit(code: ExitCode) -> ! {
     unsafe { syscall!(EXIT, code as usize) };
+    unreachable!() // 避免编译器报错
 }
 
 pub fn sleep(seconds: f64) {

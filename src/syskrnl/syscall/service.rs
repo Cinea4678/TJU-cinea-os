@@ -8,16 +8,19 @@ use embedded_graphics::pixelcolor::Rgb888;
 
 use cinea_os_sysapi::ExitCode;
 use cinea_os_sysapi::fs::read_all_from_path;
-use cinea_os_sysapi::syscall::PanicInfo;
 use cinea_os_sysapi::gui::WindowGraphicMemory;
+use cinea_os_sysapi::syscall::PanicInfo;
+use cinea_os_sysapi::time::{Date, DateTime, Time};
 
 use crate::{debugln, print, println, syscall_deserialize, syscall_serialized_ret, syskrnl};
-use crate::syskrnl::gui::font;
+use crate::syskrnl::{clock, event, proc};
+use crate::syskrnl::event::{EVENT_QUEUE, GUI_EID_START};
+use crate::syskrnl::gui::{font, WINDOW_MANAGER};
 use crate::syskrnl::proc::Process;
+use crate::syskrnl::task::keyboard;
 
-pub fn exit(code: ExitCode) -> ExitCode {
-    syskrnl::proc::exit();
-    code
+pub fn exit(_code: ExitCode) -> usize {
+    syskrnl::proc::exit()
 }
 
 pub fn sleep(seconds: f64) {
@@ -199,4 +202,35 @@ pub fn load_font(ptr: usize) -> usize {
     let obj: (String, String) = syscall_deserialize!(ptr);
     let ret = font::load_font(obj.0.as_str(),obj.1.as_str());
     syscall_serialized_ret!(&ret.is_ok())
+}
+
+pub fn destroy_window() -> usize {
+    WINDOW_MANAGER.lock().destory_window();
+    0
+}
+
+pub fn register_timer(time: usize) -> usize {
+    event::register_timer(time);
+    0
+}
+
+pub fn gui_time_update_register() -> usize {
+    let pid = proc::id();
+    clock::GUI_TIME_UPDATE_EVENT_NEEDER.lock().insert(GUI_EID_START + pid);
+    EVENT_QUEUE.lock().wait_for_register_only(GUI_EID_START + pid);
+    0
+}
+
+pub fn read_time() -> usize {
+    let now = syskrnl::time::raw_time();
+    let date = Date::new(now.year as u16, now.month as u16, now.day as u16);
+    let time = Time::new(now.hour as u16, now.minute as u16, now.second as u16, 0);
+    syscall_serialized_ret!(&DateTime::new(date, time))
+}
+
+pub fn gui_keyboard_register() -> usize {
+    let pid = proc::id();
+    keyboard::GUI_UNDK_KEY_EVENT_SUBSCRIBER.lock().push(GUI_EID_START + pid);
+    EVENT_QUEUE.lock().wait_for_register_only(GUI_EID_START + pid);
+    0
 }

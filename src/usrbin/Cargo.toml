@@ -15,3 +15,5 @@ ufmt = "0.2.0"
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 embedded-graphics = "0.8.0"
 rusttype = { version = "0.9.3", default-features = false, features = ["has-atomics", "libm", "libm-math"] }
+tinyrand = "0.5.0"
+conquer-once = { version = "0.4.0", default-features = false }

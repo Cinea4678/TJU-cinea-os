@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::pin::Pin;
 use core::task::{Context, Poll};
 
@@ -5,12 +6,16 @@ use conquer_once::spin::OnceCell;
 use crossbeam::queue::ArrayQueue;
 use futures_util::{Stream, StreamExt};
 use futures_util::task::AtomicWaker;
-use pc_keyboard::{DecodedKey, HandleControl, Keyboard, layouts, ScancodeSet1};
+use lazy_static::lazy_static;
+use pc_keyboard::{DecodedKey, HandleControl, Keyboard, KeyCode, layouts, ScancodeSet1};
+use spin::Mutex;
 use x86::io::inb;
 use x86_64::instructions::interrupts;
+
 use cinea_os_sysapi::event::*;
 
-use crate::{debug, syskrnl};
+use crate::syskrnl;
+use crate::syskrnl::clock::GUI_TIME_UPDATE_EVENT_NEEDER;
 use crate::syskrnl::event;
 use crate::syskrnl::proc::SCHEDULER;
 
@@ -84,9 +89,24 @@ pub async fn key_presses_handler(){
                 // debugln!("{:?}",key);
                 match key {
                     DecodedKey::Unicode(character) => {key_event_handler(character)}
-                    DecodedKey::RawKey(key) => {debug!("undk:{:?}",key)}
+                    DecodedKey::RawKey(key) => { undk_handler(key) }
                 }
             }
+        }
+    }
+}
+
+lazy_static!{
+    pub static ref GUI_UNDK_KEY_EVENT_SUBSCRIBER: Mutex<Vec<usize>> = {
+        Mutex::new(Vec::new())
+    };
+}
+
+fn undk_handler(ch: KeyCode) {
+    let c = ch as u16;
+    for eid in GUI_TIME_UPDATE_EVENT_NEEDER.lock().iter(){
+        if let Some(pid) = event::EVENT_QUEUE.lock().wakeup_with_ret(*eid,gui_event_make_ret(GUI_EVENT_UNDK_KEY,c,0,0)){
+            SCHEDULER.lock().wakeup(pid);
         }
     }
 }

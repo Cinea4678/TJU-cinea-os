@@ -65,12 +65,14 @@ name = "cinea-os-userspace"
 version = "0.1.0"
 dependencies = [
  "cinea-os-sysapi",
+ "conquer-once",
  "embedded-graphics",
  "lazy_static",
  "rusttype",
  "ryu",
  "serde_json",
  "spin 0.9.8",
+ "tinyrand",
  "ufmt",
 ]
 
@@ -79,6 +81,21 @@ name = "cobs"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67ba02a97a2bd10f4b59b25c7973101c79642302776489e030cd13cdab09ed15"
+
+[[package]]
+name = "conquer-once"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d008a441c0f269f36ca13712528069a86a3e60dffee1d98b976eb3b0b2160b4"
+dependencies = [
+ "conquer-util",
+]
+
+[[package]]
+name = "conquer-util"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e763eef8846b13b380f37dfecda401770b0ca4e56e95170237bd7c25c7db3582"
 
 [[package]]
 name = "embedded-graphics"
@@ -309,6 +326,12 @@ checksum = "197cc000e382175ff15abd9c54c694ef80ef20cb07e7f956c71e3ea97fc8dc60"
 dependencies = [
  "embedded-graphics",
 ]
+
+[[package]]
+name = "tinyrand"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87ffaad2263779579369d45f65cad0647c860893d27e4543cdcc1e428d07da2c"
 
 [[package]]
 name = "ttf-parser"

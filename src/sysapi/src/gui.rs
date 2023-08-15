@@ -9,7 +9,8 @@ use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::RawData;
 use tinybmp::{Bmp, ChannelMasks, RawBmp, RawPixel};
 
-use crate::call::{CREATE_WINDOW, DISPLAY_FONT_STRING, LOAD_FONT};
+use crate::call::{CREATE_WINDOW, DESTROY_WINDOW, DISPLAY_FONT_STRING, LOAD_FONT};
+use crate::syscall;
 
 pub const WINDOW_WIDTH: usize = 300;
 pub const WINDOW_HEIGHT: usize = 200;
@@ -171,6 +172,10 @@ pub fn init_window_gui(title: &str, background_color: Rgb888) -> Option<WindowWr
         None
     }
 }
+
+pub fn remove_window_gui(_writer: WindowWriter) {
+    unsafe { syscall!(DESTROY_WINDOW) };
+} 
 
 pub fn load_font(name: &str, path: &str) -> bool {
     let ret: Result<bool, _> = syscall_with_serdeser!(LOAD_FONT, (String::from(name),String::from(path)));

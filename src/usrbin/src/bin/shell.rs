@@ -5,6 +5,7 @@ extern crate alloc;
 
 use alloc::string::String;
 use alloc::vec::Vec;
+use core::ops::Add;
 
 use cinea_os_sysapi::{allocator, entry_point};
 use cinea_os_sysapi::fs::spawn_from_path;
@@ -116,15 +117,17 @@ fn main(_args: &[&str]) {
                 if resolved.len() == 0 {
                     continue;
                 }
+                print!("---Debug Message---\n");
                 print!("Command: {}\n", resolved[0].as_str());
                 print!("Arg Num: {}\n", resolved.len() - 1);
                 print!("Args:    ");
                 for i in 1..resolved.len() {
                     print!("{} ", resolved[i].as_str())
                 }
-                print!("\n");
-                if resolved[0].as_str() == "taffy" {
-                    let _ = spawn_from_path("/bin/taffy", Vec::new());
+                print!("\n-------------------\n");
+                let exec_path = String::from("/bin/").add(resolved[0].as_str());
+                if !spawn_from_path(exec_path.as_str(), resolved.as_slice()[1..].iter().cloned().collect()) {
+                    print!("程序\"{}\"没有找到", resolved[0].as_str());
                 }
             }
         }

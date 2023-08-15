@@ -7,6 +7,7 @@ use alloc::collections::{BTreeMap, VecDeque};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
+use cinea_os_sysapi::event::{gui_event_make_ret, SLEEP_WAKEUP};
 
 use crate::syskrnl::event::{EVENT_QUEUE, EventType};
 use crate::syskrnl::time;
@@ -36,7 +37,7 @@ pub fn check_wakeup() -> Option<usize> {
                 if map_queue.len() == 0 {
                     lock.remove(&first);
                 }
-                EVENT_QUEUE.lock().wakeup(eid)
+                EVENT_QUEUE.lock().wakeup_with_ret(eid, gui_event_make_ret(SLEEP_WAKEUP as u16, 0, 0, 0)) // 让正在等待GUI事件的程序也能处理
             } else { None }
         } else { None }
     } else { None }

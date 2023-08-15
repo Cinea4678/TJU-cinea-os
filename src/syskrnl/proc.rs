@@ -1,5 +1,5 @@
 use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
 use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
@@ -31,10 +31,15 @@ const MAX_PROC_SIZE: usize = 10 << 20;
 const MAX_FILE_HANDLES: usize = 64;
 
 pub static PID: AtomicUsize = AtomicUsize::new(0);
-pub static MAX_PID: AtomicUsize = AtomicUsize::new(1);
+lazy_static! {
+    static ref PID_POOL: Mutex<BTreeSet<usize>> = {
+        let pool:BTreeSet<_> = (1..MAX_PROCS).collect();
+        Mutex::new(pool)
+    };
+}
 
 pub static PROC_HEAP_ADDR: AtomicUsize = AtomicUsize::new(0x0002_0000_0000);
-const DEFAULT_HEAP_SIZE: usize = 0x4000; // 默认堆内存大小
+const DEFAULT_HEAP_SIZE: usize = 0x1_000_000; // 默认堆内存大小:1MB
 
 lazy_static! {
     pub static ref SCHEDULER: Mutex<Box<dyn ProcessScheduler + 'static + Send>> = {
@@ -289,12 +294,14 @@ pub fn file_handles() -> Arc<Mutex<BTreeMap<usize, OpenFileHandle>>> {
 }
 
 /// 进程退出
-pub fn exit() {
+pub fn exit() -> usize {
     let table = PROCESS_TABLE.read();
     let proc = &table[id()];
     syskrnl::allocator::free_pages(proc.code_addr, MAX_PROC_SIZE);
-    MAX_PID.fetch_sub(1, Ordering::SeqCst);
-    set_id(proc.parent); // FIXME: 因为目前还不存在调度，所以直接设置为父进程
+    PID_POOL.lock().insert(id());
+    let next_pid = SCHEDULER.lock().terminate(proc);
+    debugln!("EXIT:{} -> {}",id(),next_pid);
+    next_pid
 }
 
 pub unsafe fn page_table() -> &'static mut PageTable {
@@ -413,24 +420,27 @@ impl Process {
         unsafe { allocator.init(heap_addr, DEFAULT_HEAP_SIZE) };
         let allocator = Arc::new(Locked::new(allocator));
 
-        let id = MAX_PID.fetch_add(1, Ordering::SeqCst);
-        let proc = Process {
-            id,
-            code_addr,
-            stack_addr,
-            data,
-            registers,
-            stack_frame,
-            entry_point,
-            parent,
-            allocator,
-            page_table_frame,
-        };
+        if let Some(id) = PID_POOL.lock().pop_first() {
+            let proc = Process {
+                id,
+                code_addr,
+                stack_addr,
+                data,
+                registers,
+                stack_frame,
+                entry_point,
+                parent,
+                allocator,
+                page_table_frame,
+            };
 
-        let mut table = PROCESS_TABLE.write();
-        table[id] = Box::new(proc);
+            let mut table = PROCESS_TABLE.write();
+            table[id] = Box::new(proc);
 
-        Ok(id)
+            Ok(id)
+        } else {
+            Err(())
+        }
     }
 
     // 切换到用户空间并执行程序

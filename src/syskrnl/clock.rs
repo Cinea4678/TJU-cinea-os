@@ -1,5 +1,11 @@
+use alloc::collections::{BTreeSet, VecDeque};
 use core::sync::atomic::{AtomicBool, Ordering};
+use lazy_static::lazy_static;
+use spin::Mutex;
+use cinea_os_sysapi::event::{gui_event_make_ret, GUI_EVENT_TIME_UPDATE};
 use crate::syskrnl;
+use crate::syskrnl::event::EVENT_QUEUE;
+use crate::syskrnl::proc::SCHEDULER;
 use crate::syskrnl::time;
 
 const DAYS_BEFORE_MONTH: [u64; 13] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];
@@ -56,10 +62,23 @@ pub fn realtime() -> f64 {
     timestamp as f64 + fract
 }
 
+lazy_static! {
+    pub static ref GUI_TIME_UPDATE_EVENT_NEEDER: Mutex<BTreeSet<usize>> = Mutex::new(BTreeSet::new());
+}
+
 static EVEN_ODD_FLAG: AtomicBool = AtomicBool::new(false);
 
 /// 半秒事件处理器
 pub fn half_sec_handler() {
     let eof = EVEN_ODD_FLAG.fetch_not(Ordering::Relaxed);
     syskrnl::gui::status_bar::update_status_bar_time(eof);
+    if !eof {
+        // debugln!("Half sec: {:?}", GUI_TIME_UPDATE_EVENT_NEEDER.lock());
+        for eid in GUI_TIME_UPDATE_EVENT_NEEDER.lock().iter() {
+            if let Some(pid) = EVENT_QUEUE.lock().wakeup_with_ret(*eid, gui_event_make_ret(GUI_EVENT_TIME_UPDATE, 0, 0, 0)) {
+                SCHEDULER.lock().wakeup(pid);
+            }
+        }
+    }
 }
+

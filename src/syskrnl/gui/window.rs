@@ -6,16 +6,17 @@ use alloc::vec::Vec;
 use embedded_graphics::pixelcolor::Rgb888;
 use lazy_static::lazy_static;
 use spin::{Mutex, RwLock};
-use x86::task::tr;
 
+use cinea_os_sysapi::event::{GUI_EVENT_EXIT, gui_event_make_ret, GUI_EVENT_MOUSE_CLICK};
 use cinea_os_sysapi::fs::read_all_from_path;
 pub use cinea_os_sysapi::gui::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use cinea_os_sysapi::gui::WindowGraphicMemory;
 
 use crate::rgb888;
 use crate::syskrnl::{graphic, proc};
-use crate::syskrnl::event::EVENT_QUEUE;
-use crate::syskrnl::graphic::{GL, resolve_32rgba};
+use crate::syskrnl::event::{EVENT_QUEUE, GUI_EID_START};
+use crate::syskrnl::graphic::{GL, HEIGHT, resolve_32rgba, WIDTH};
+use crate::syskrnl::proc::SCHEDULER;
 
 lazy_static! {
     pub static ref WINDOW_MANAGER: Mutex<WindowManager> = Mutex::new(WindowManager::new());
@@ -50,7 +51,7 @@ impl WindowLayoutManager {
     }
 
     pub fn in_window(&self, index: usize, x: usize, y: usize) -> bool {
-        if let Some(layout) = self.layouts.get(index) {
+        if let Some(layout) = self.layouts.get(index) && layout.2 {
             layout.0 <= x && x < layout.0 + WINDOW_HEIGHT && layout.1 <= y && y < layout.1 + WINDOW_WIDTH
         } else {
             false
@@ -81,14 +82,27 @@ impl WindowManager {
         let pid = proc::id();
         if let None = self.windows.iter().find(|w| w.process_id == pid) {
             if self.windows.len() < self.layout.layouts.len() {
-                self.windows.push(Window::new(pid, title, gm_addr));
-                self.layout.layouts[self.windows.len() - 1].2 = true;
+                let layout_i = self.layout.layouts.iter().enumerate().find(|l| l.1.2 == false).unwrap().0;
+                if layout_i >= self.windows.len() {
+                    self.windows.push(Window::new(pid, title, gm_addr));
+                } else {
+                    self.windows[layout_i] = Window::new(pid, title, gm_addr);
+                }
+                self.layout.layouts[layout_i].2 = true;
                 true
             } else {
                 false
             }
         } else {
             false
+        }
+    }
+
+    pub fn destory_window(&mut self) {
+        let pid = proc::id();
+        if let Some((i, _window)) = self.windows.iter().enumerate().find(|w| w.1.process_id == pid) {
+            self.layout.layouts[i].2 = false;
+            EVENT_QUEUE.lock().switch_front(1);
         }
     }
 
@@ -111,6 +125,7 @@ impl WindowManager {
     pub fn render(&mut self) {
         let p_lock = GL.read();
         let mut lock = p_lock[2].lock();
+        lock.clear_rect(0, 0, WIDTH, HEIGHT);
         for (i, window) in self.windows.iter().enumerate() {
             if i == self.highlight {
                 continue;
@@ -140,7 +155,27 @@ impl WindowManager {
     fn window_handle_click(&mut self, window_index: usize, x: usize, y: usize) {
         let x = x - self.layout.layouts[window_index].0;
         let y = y - self.layout.layouts[window_index].1;
-        debugln!("Window Handle Click: {} {} {}",window_index,x,y);
+        // debugln!("Window Handle Click: {} {} {}",window_index,x,y);
+
+        if x < 20 {
+            if y < 18 {
+                // Close Button
+                let ret = gui_event_make_ret(GUI_EVENT_EXIT, 0, 0, 0);
+                if let Some(pid) = EVENT_QUEUE.lock().wakeup_with_ret(GUI_EID_START + self.windows[window_index].process_id, ret) {
+                    SCHEDULER.lock().wakeup(pid);
+                }
+            } else if y < 38 {
+                // Move Button
+                self.moving_window_now = true
+            }
+        } else {
+            let x = x - 20;
+            let y = y - 2;
+            let ret = gui_event_make_ret(GUI_EVENT_MOUSE_CLICK, x as u16, y as u16, 0);
+            if let Some(pid) = EVENT_QUEUE.lock().wakeup_with_ret(GUI_EID_START + self.windows[window_index].process_id, ret) {
+                SCHEDULER.lock().wakeup(pid);
+            }
+        }
     }
 
     pub fn handle_mouse_click(&mut self, x: usize, y: usize) {
@@ -155,11 +190,14 @@ impl WindowManager {
         //     非活动窗口：转为活动窗口
         //
 
+        debugln!("Mouse Click:{},{}",x,y);
+
         if self.moving_window_now {
             // 移动窗口到鼠标位置
             let layout = &mut self.layout.layouts[self.highlight];
             layout.0 = x;
             layout.1 = y;
+            self.moving_window_now = false;
         } else if self.layout.in_window(self.highlight, x, y) {
             self.window_handle_click(self.highlight, x, y);
         } else {

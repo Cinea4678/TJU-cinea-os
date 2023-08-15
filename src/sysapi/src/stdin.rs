@@ -1,5 +1,7 @@
 use alloc::string::String;
+
 use crate::event::getch;
+use crate::syscall::log;
 
 pub fn get(n: usize, buf: &mut [char]) -> usize {
     let size = n.min(buf.len());

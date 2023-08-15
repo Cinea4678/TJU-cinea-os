@@ -217,15 +217,13 @@ extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: 
     let res = syskrnl::syscall::dispatcher(n, arg1, arg2, arg3, arg4);
 
     if n == cinea_os_sysapi::call::EXIT { // 恢复现场
-        let sf = syskrnl::proc::stack_frame();
-        unsafe {
-            //stack_frame.as_mut().write(sf);
-            core::ptr::write_volatile(stack_frame.as_mut().extract_inner() as *mut InterruptStackFrameValue, sf); // FIXME
-            core::ptr::write_volatile(regs, syskrnl::proc::registers());
-        }
+        debugln!("恢复现场");
+        debugln!("额外信息：{:?}",SCHEDULER.lock());
+        let next_pid = res;
+        unsafe { switch_context_to(next_pid, stack_frame, regs); }
+    } else {
+        regs.rax = res;
     }
-
-    regs.rax = res;
 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(0x80) };
 }

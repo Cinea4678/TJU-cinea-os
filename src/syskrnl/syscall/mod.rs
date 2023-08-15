@@ -13,7 +13,7 @@ mod service;
 pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize) -> usize {
     interrupts::without_interrupts(|| {
         match syscall_id {
-            EXIT => service::exit(ExitCode::from(arg1)) as usize,
+            EXIT => service::exit(ExitCode::from(arg1)),
             SPAWN => service::spawn(arg1, arg2, arg3, arg4) as usize,
             INFO => service::info(arg1),
             DUP => unimplemented!(),
@@ -76,6 +76,21 @@ pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4
             }
             LOAD_FONT => {
                 service::load_font(arg1)
+            }
+            DESTROY_WINDOW => {
+                service::destroy_window()
+            }
+            REGISTER_TIMER => {
+                service::register_timer(arg1)
+            }
+            GUI_SUBSCRIBE_TIME_UPDATE => {
+                service::gui_time_update_register()
+            }
+            READ_TIME => {
+                service::read_time()
+            }
+            GUI_SUBSCRIBE_KEYBOARD => {
+                service::gui_time_update_register()
             }
             _ => panic!("unknown syscall id: {}", syscall_id),
         }

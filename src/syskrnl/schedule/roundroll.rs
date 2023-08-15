@@ -5,6 +5,7 @@ use alloc::vec::Vec;
 use crate::syskrnl::proc::Process;
 use crate::syskrnl::schedule::ProcessScheduler;
 
+#[derive(Debug)]
 struct RoundRollNode {
     /// pid
     pid: usize,
@@ -23,6 +24,7 @@ struct RoundRollNode {
 }
 
 /// 轮转算法
+#[derive(Debug)]
 pub struct RoundRollScheduler {
     /// 进程表
     table: Vec<RoundRollNode>,
@@ -97,6 +99,8 @@ impl RoundRollScheduler {
         let prev = self.table[self.head].prev;
         self.table[prev].next = node;
         self.table[self.head].prev = node;
+        self.table[node].prev = prev;
+        self.table[node].next = self.head;
         self.map.insert(process_id, node);
     }
 
@@ -110,6 +114,7 @@ impl RoundRollScheduler {
             self.dealloc(node);
             self.map.remove(&process_id).unwrap();
         }
+        // debugln!("Remove Process: {}, now:{}, snapshot:{:?}",process_id,self.now(),self.table)
     }
 
     /// 获取当前PID
@@ -134,7 +139,7 @@ impl ProcessScheduler for RoundRollScheduler {
         self.now()
     }
 
-    fn terminate(&mut self, process: Process) -> usize {
+    fn terminate(&mut self, process: &Process) -> usize {
         self.remove(process.id);
         self.now()
     }
@@ -153,6 +158,7 @@ impl ProcessScheduler for RoundRollScheduler {
     }
 
     fn wakeup(&mut self, process: usize) -> usize {
+        // debugln!("Process Wakeup:{}",process);
         if let Some(node) = self.map.get(&process) {
             self.table[*node].skip = false;
         }

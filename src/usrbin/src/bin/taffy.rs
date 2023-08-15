@@ -3,10 +3,11 @@
 
 extern crate alloc;
 
-use cinea_os_sysapi::{allocator, entry_point, rgb888, gui};
-use cinea_os_sysapi::event::sleep;
+use cinea_os_sysapi::{allocator, entry_point, ExitCode, gui, rgb888};
+use cinea_os_sysapi::event::{GUI_EVENT_EXIT, wait_gui_event};
 use cinea_os_sysapi::fs::read_all_from_path;
-use cinea_os_sysapi::gui::{load_font, WindowWriter};
+use cinea_os_sysapi::gui::{load_font, remove_window_gui, WindowWriter};
+use cinea_os_sysapi::syscall::exit;
 use cinea_os_userspace::print;
 
 entry_point!(main);
@@ -25,6 +26,13 @@ fn main(_args: &[&str]) {
     window_instance.display_font_string("关注永雏塔菲谢谢喵", "Vonwaon", 28, 10, 16.0, 16, rgb888!(0xff0000u32));
     loop {
         //print!("关注永雏塔菲喵\n");
-        sleep(1000);
+        let (code, _arg0, _arg1, _arg2) = wait_gui_event();
+        match code {
+            GUI_EVENT_EXIT => {
+                remove_window_gui(window_instance);
+                break;
+            }
+            _ => {}
+        }
     }
 }

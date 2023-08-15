@@ -1,17 +1,21 @@
 use alloc::collections::{BTreeMap, VecDeque};
-
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 pub use call::dispatcher;
+pub use service::GUI_EID_START;
 
 use crate::syskrnl;
 use crate::syskrnl::proc::SCHEDULER;
 
 pub mod call;
 mod service;
+
+pub fn register_timer(million_seconds: usize) {
+    service::sleep_wakeup(million_seconds, true);
+}
 
 pub static NEED_CHECK_EVENT_DATA: AtomicBool = AtomicBool::new(false);
 
@@ -56,12 +60,23 @@ impl EventQueue {
     ///
     /// 返回值是下一个进程的pid
     pub fn wait_for(&mut self, event: EventType) -> usize {
+        // debugln!("Wait for {}, {}", event, syskrnl::proc::id());
         // 标识当前进程为“等待”，停止其调度
         let next = SCHEDULER.lock().wait();
         // 注册事件等待
         self.wait(syskrnl::proc::id(), event);
         // 返回下一个进程的PID
         return next;
+    }
+
+    /// 等待某事件，但不立即停止该进程
+    ///
+    /// 用于GUI等多种等待并存的情景？
+    ///
+    /// 返回值是下一个进程的pid
+    pub fn wait_for_register_only(&mut self, event: EventType) {
+        // 注册事件等待
+        self.wait(syskrnl::proc::id(), event);
     }
 
     /// 根据事件唤醒进程
@@ -88,8 +103,10 @@ impl EventQueue {
             NEED_CHECK_EVENT_DATA.store(true, Ordering::Relaxed);
             let mut lock = EVENT_DATA.lock();
             *lock.entry(pid).or_insert(0) = ret;
+            // debugln!("WAKEUP WITH RET: {}, {}, {}",event,ret,pid);
             Some(pid)
         } else {
+            // debugln!("WAKEUP WITH RET: {}, {}, None, {:?}",event,ret,self.queue);
             None
         }
     }

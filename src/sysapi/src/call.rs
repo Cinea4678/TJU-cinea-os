@@ -60,6 +60,8 @@ pub const NO_SCHE: usize = 0x10;
 /// resume schedule
 pub const CON_SCHE: usize = 0x11;
 pub const TEST_SERDE: usize = 0x12;
+pub const REGISTER_TIMER: usize = 0x13;
+pub const READ_TIME: usize = 0x14;
 /// list files and directories in specified directory.
 ///
 /// format: (2): a0-len,a1-postcarded FE ret-postcarded Vec-FE
@@ -77,6 +79,9 @@ pub const CREATE_WINDOW: usize = 0x30;
 pub const DISPLAY_FONT_STRING: usize = 0x31;
 pub const LOAD_FONT: usize = 0x32;
 pub const REMOVE_FONT: usize = 0x33;
+pub const DESTROY_WINDOW: usize = 0x34;
+pub const GUI_SUBSCRIBE_TIME_UPDATE: usize = 0x35;
+pub const GUI_SUBSCRIBE_KEYBOARD: usize = 0x36;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SysCallResult {

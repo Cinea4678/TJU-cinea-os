@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use ufmt::uDebug;
+use crate::call::READ_TIME;
 
 #[derive(Copy, Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Serialize, Deserialize)]
 pub struct Date {
@@ -30,6 +31,10 @@ impl Date {
             day: date.day,
         }
     }
+
+    pub fn new(year: u16, month: u16, day: u16) -> Self {
+        Self { year, month, day }
+    }
 }
 
 impl uDebug for Date {
@@ -54,6 +59,10 @@ impl Time {
             hour: time.hour,
         }
     }
+
+    pub fn new(hour: u16, min: u16, sec: u16, millis: u16) -> Self {
+        Self { hour, min, sec, millis }
+    }
 }
 
 impl uDebug for Time {
@@ -77,6 +86,10 @@ impl DateTime {
             time: Time::from_fatfs(&datetime.time),
         }
     }
+
+    pub fn new(date: Date, time: Time) -> Self {
+        Self { date, time }
+    }
 }
 
 impl uDebug for DateTime {
@@ -89,4 +102,9 @@ impl uDebug for DateTime {
             .finish()?;
         Ok(())
     }
+}
+
+pub fn get_datetime() -> DateTime {
+    let ret: Result<DateTime, _> = syscall_with_deserialize!(READ_TIME);
+    ret.expect("Read time failed. 8d76")
 }
