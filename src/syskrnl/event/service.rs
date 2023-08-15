@@ -1,5 +1,5 @@
-use core::sync::atomic::{AtomicUsize, Ordering};
 use cinea_os_sysapi::event::KEYBOARD_INPUT;
+use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::syskrnl;
 use crate::syskrnl::event::EVENT_QUEUE;
@@ -27,11 +27,11 @@ pub fn sleep_wakeup(time: usize, register_only: bool) -> usize {
         SLEEP_ID.store(SLEEP_EID_START, Ordering::SeqCst);
     }
     syskrnl::time::add_sleep(time, eid);
-    if register_only{
+    if register_only {
         // 指定不要停止调度
         EVENT_QUEUE.lock().wait_for_register_only(eid);
         0
-    }else{
+    } else {
         let next = EVENT_QUEUE.lock().wait_for(eid);
         next
     }

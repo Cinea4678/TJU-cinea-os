@@ -3,7 +3,6 @@
 /// 本文件由phil-opp.com的版本修改而来。
 /// 改进了空闲区块的排序原则，并增加了dealloc时碎片区块的合并。
 ///
-
 use core::alloc::{GlobalAlloc, Layout};
 use core::{fmt, mem};
 
@@ -16,10 +15,7 @@ struct ListNode {
 
 impl ListNode {
     const fn new(size: usize) -> Self {
-        ListNode {
-            size,
-            next: None,
-        }
+        ListNode { size, next: None }
     }
 
     fn start_addr(&self) -> usize {
@@ -77,21 +73,21 @@ impl LinkedListAllocator {
         // 先寻找左右两边是否也为空闲
 
         let (mut left_found, mut right_found) = (false, false);
-        let (mut addr,mut size) = (addr,size);
+        let (mut addr, mut size) = (addr, size);
         let mut current = &mut self.head;
-        while let Some(ref mut region)=current.next {
-            if !left_found && region.end_addr() == addr{
+        while let Some(ref mut region) = current.next {
+            if !left_found && region.end_addr() == addr {
                 left_found = true;
                 addr = region.start_addr();
                 size += region.size;
                 current.next = region.next.take();
-            }else if !right_found && region.start_addr() == addr+size {
+            } else if !right_found && region.start_addr() == addr + size {
                 right_found = true;
                 size += region.size;
                 current.next = region.next.take();
-            }else if left_found && right_found {
+            } else if left_found && right_found {
                 break;
-            }else {
+            } else {
                 current = current.next.as_mut().unwrap();
             }
         }
@@ -114,9 +110,7 @@ impl LinkedListAllocator {
     /// 寻找一个满足给定大小的空闲区域，并把它从链表中移除
     ///
     /// 返回列表节点和可用区域的起始地址
-    fn find_region(&mut self, size: usize, align: usize)
-        -> Option<(&'static mut ListNode, usize)>
-    {
+    fn find_region(&mut self, size: usize, align: usize) -> Option<(&'static mut ListNode, usize)> {
         let mut current = &mut self.head;
         // 寻找足够的空间
         while let Some(ref mut region) = current.next {
@@ -139,12 +133,11 @@ impl LinkedListAllocator {
     /// 尝试使用给定区域进行具有给定大小和对齐方式的分配
     ///
     /// 成功时返回分配起始地址
-    fn alloc_from_region(region: &ListNode, size: usize, align: usize)
-                         -> Result<usize, ()>{
+    fn alloc_from_region(region: &ListNode, size: usize, align: usize) -> Result<usize, ()> {
         let alloc_start = align_up(region.start_addr(), align);
         let alloc_end = alloc_start.checked_add(size).ok_or(())?;
 
-        if alloc_end > region.end_addr(){
+        if alloc_end > region.end_addr() {
             // 这个区域不够大
             return Err(());
         }

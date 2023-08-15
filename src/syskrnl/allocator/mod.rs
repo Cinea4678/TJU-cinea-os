@@ -1,11 +1,12 @@
 use alloc::alloc::{GlobalAlloc, Layout};
 use core::ptr::null_mut;
 
-use x86_64::{PhysAddr, structures::paging::{
-    FrameAllocator, Mapper, mapper::MapToError, Page, PageTableFlags, Size4KiB,
-}, VirtAddr};
-use x86_64::structures::paging::{OffsetPageTable, PhysFrame};
 use x86_64::structures::paging::page::PageRangeInclusive;
+use x86_64::structures::paging::{OffsetPageTable, PhysFrame};
+use x86_64::{
+    structures::paging::{mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB},
+    PhysAddr, VirtAddr,
+};
 
 use linked_list::LinkedListAllocator;
 
@@ -58,10 +59,7 @@ pub fn avaliable_memory_size() -> usize {
     lock.size() - lock.allocated()
 }
 
-pub fn init_heap(
-    mapper: &mut impl Mapper<Size4KiB>,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-) -> Result<(), MapToError<Size4KiB>> {
+pub fn init_heap(mapper: &mut impl Mapper<Size4KiB>, frame_allocator: &mut impl FrameAllocator<Size4KiB>) -> Result<(), MapToError<Size4KiB>> {
     syskrnl::proc::init_process_addr((HEAP_START + HEAP_SIZE) as u64);
 
     let page_range = {
@@ -73,13 +71,9 @@ pub fn init_heap(
     };
 
     for page in page_range {
-        let frame = frame_allocator
-            .allocate_frame()
-            .ok_or(MapToError::FrameAllocationFailed)?;
+        let frame = frame_allocator.allocate_frame().ok_or(MapToError::FrameAllocationFailed)?;
         let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-        unsafe {
-            mapper.map_to(page, frame, flags, frame_allocator)?.flush()
-        };
+        unsafe { mapper.map_to(page, frame, flags, frame_allocator)?.flush() };
     }
 
     unsafe {
@@ -138,7 +132,9 @@ pub fn alloc_pages(mapper: &mut OffsetPageTable, addr: u64, size: usize) -> Resu
 pub fn alloc_pages_to_known_phys(mapper: &mut OffsetPageTable, addr: u64, size: usize, phys_start: u64, user_accessible: bool) -> Result<(), ()> {
     let mut frame_allocator = syskrnl::memory::frame_allocator();
     let mut flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
-    if user_accessible { flags |= PageTableFlags::USER_ACCESSIBLE };
+    if user_accessible {
+        flags |= PageTableFlags::USER_ACCESSIBLE
+    };
     let pages = {
         let start_page: Page<Size4KiB> = Page::containing_address(VirtAddr::new(addr));
         let end_page = Page::containing_address(VirtAddr::new(addr + (size as u64) - 1));
@@ -179,13 +175,12 @@ pub unsafe fn fix_page_fault_in_userspace(mapper: &mut OffsetPageTable) {
     }
 }
 
-
 #[allow(dead_code)]
 pub fn test_allocator() {
     use alloc::boxed::Box;
-    use alloc::vec::Vec;
-    use alloc::vec;
     use alloc::rc::Rc;
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     let heap_value = Box::new(831);
     println!("heap_value is at {:p}", heap_value);

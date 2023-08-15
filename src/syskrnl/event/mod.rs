@@ -20,13 +20,8 @@ pub fn register_timer(million_seconds: usize) {
 pub static NEED_CHECK_EVENT_DATA: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
-    pub static ref EVENT_DATA:Mutex<BTreeMap<usize,usize>> = {
-        Mutex::new(BTreeMap::new())
-    };
-
-    pub static ref EVENT_QUEUE:Mutex<EventQueue> = {
-        Mutex::new(EventQueue::new())
-    };
+    pub static ref EVENT_DATA: Mutex<BTreeMap<usize, usize>> = { Mutex::new(BTreeMap::new()) };
+    pub static ref EVENT_QUEUE: Mutex<EventQueue> = { Mutex::new(EventQueue::new()) };
 }
 
 pub type EventType = usize;
@@ -84,7 +79,9 @@ impl EventQueue {
     /// 返回值是下一个进程的pid
     pub fn wakeup(&mut self, event: EventType) -> Option<usize> {
         if let Some(queue) = self.queue.get_mut(&event) {
-            if queue.len() == 0 { None } else {
+            if queue.len() == 0 {
+                None
+            } else {
                 if let Some(fp) = queue.iter().position(|x| *x == self.front_proc) {
                     queue.remove(fp).unwrap();
                     Some(self.front_proc)

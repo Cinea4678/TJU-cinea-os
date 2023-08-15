@@ -1,7 +1,5 @@
 use alloc::vec;
 use alloc::vec::Vec;
-use core::sync::atomic::AtomicUsize;
-use core::sync::atomic::Ordering::Relaxed;
 
 use fatfs::{IoBase, Read, Seek, SeekFrom, Write};
 
@@ -12,7 +10,7 @@ const SECTOR_SIZE: usize = 512;
 const SECTOR_BIN_SZ: usize = 9;
 const SECTOR_MASK: usize = 0x1FF;
 const CACHE_SECTORS: u64 = 64;
-const CACHE_SIZE: usize = SECTOR_SIZE * CACHE_SECTORS as usize;  // 32KB
+const CACHE_SIZE: usize = SECTOR_SIZE * CACHE_SECTORS as usize; // 32KB
 
 pub struct AhciDeviceReader {
     pub port_no: u64,
@@ -58,13 +56,17 @@ impl AhciDeviceReader {
     }
 
     pub fn set_position(&mut self, pos: usize) -> Result<(), ()> {
-        if pos > self.max_sector as usize * SECTOR_SIZE { return Err(()); };
+        if pos > self.max_sector as usize * SECTOR_SIZE {
+            return Err(());
+        };
         self.position = pos;
         Ok(())
     }
 }
 
-impl IoBase for AhciDeviceReader { type Error = (); }
+impl IoBase for AhciDeviceReader {
+    type Error = ();
+}
 
 impl Read for AhciDeviceReader {
     fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
@@ -74,7 +76,9 @@ impl Read for AhciDeviceReader {
     }
 
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<(), Self::Error> {
-        if self.position + buf.len() > self.max_sector as usize * SECTOR_SIZE { return Err(()); };
+        if self.position + buf.len() > self.max_sector as usize * SECTOR_SIZE {
+            return Err(());
+        };
 
         let port = unsafe { &mut *(self.port as *mut HbaPort) };
 
@@ -100,7 +104,11 @@ impl Read for AhciDeviceReader {
             if i == read_times {
                 // 最后一次
                 // debugln!("Read pos:{:#x}, count:{}, buf_len:{}", start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) * 512, self.cache.as_mut_slice().len());
-                if !port.read(start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) as u32, self.cache.as_mut_slice()) {
+                if !port.read(
+                    start_sector + i as u64 * CACHE_SECTORS,
+                    (sectors % CACHE_SECTORS as usize) as u32,
+                    self.cache.as_mut_slice(),
+                ) {
                     return Err(());
                 }
 
@@ -132,7 +140,7 @@ impl Read for AhciDeviceReader {
     }
 }
 
-impl Write for AhciDeviceReader{
+impl Write for AhciDeviceReader {
     fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
         let write_len = buf.len().min(self.max_sector as usize * SECTOR_SIZE - self.position);
         self.write_all(&buf[0..write_len])?;
@@ -140,7 +148,9 @@ impl Write for AhciDeviceReader{
     }
 
     fn write_all(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        if self.position + buf.len() > self.max_sector as usize * SECTOR_SIZE { return Err(()); };
+        if self.position + buf.len() > self.max_sector as usize * SECTOR_SIZE {
+            return Err(());
+        };
 
         self.cache_valid = false;
 
@@ -167,7 +177,11 @@ impl Write for AhciDeviceReader{
             }
             if i == write_times {
                 // 最后一次
-                if !port.write(start_sector + i as u64 * CACHE_SECTORS, (sectors % CACHE_SECTORS as usize) as u32, self.cache.as_slice()) {
+                if !port.write(
+                    start_sector + i as u64 * CACHE_SECTORS,
+                    (sectors % CACHE_SECTORS as usize) as u32,
+                    self.cache.as_slice(),
+                ) {
                     return Err(());
                 }
                 last_write = (sectors % CACHE_SECTORS as usize) * SECTOR_SIZE;
@@ -182,7 +196,6 @@ impl Write for AhciDeviceReader{
         self.position += buf.len();
 
         Ok(())
-
     }
 
     fn flush(&mut self) -> Result<(), Self::Error> {
@@ -192,7 +205,7 @@ impl Write for AhciDeviceReader{
 
 impl Seek for AhciDeviceReader {
     fn seek(&mut self, pos: SeekFrom) -> Result<u64, Self::Error> {
-        match pos{
+        match pos {
             SeekFrom::Start(pos) => {
                 self.set_position(pos as usize)?;
                 Ok(pos)
@@ -208,4 +221,3 @@ impl Seek for AhciDeviceReader {
         }
     }
 }
-
