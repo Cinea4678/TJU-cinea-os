@@ -4,11 +4,11 @@ use crate::syskrnl::graphic::GL;
 use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
 use crate::syskrnl::gui::status_bar::show_status_bar;
 
-pub mod status_bar;
 pub mod cursor;
-pub mod panic;
-pub mod window;
 pub mod font;
+pub mod panic;
+pub mod status_bar;
+pub mod window;
 
 pub use window::WINDOW_MANAGER;
 
@@ -39,5 +39,5 @@ fn show_command_area() {
     //GL.read()[0].lock().display_rect(0, 0, WIDTH, HEIGHT, rgb888!(0x006699u32));
 
     let background_img = include_bytes!("../../../assets/OS_background.bmp");
-    GL.read()[0].lock().display_img(0,0,background_img);
+    GL.read()[0].lock().display_img(0, 0, background_img);
 }

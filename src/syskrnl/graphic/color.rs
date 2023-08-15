@@ -1,13 +1,10 @@
-
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::RgbColor;
-
-
 
 #[macro_export]
 macro_rules! rgb888 {
     ($num:expr) => {
-        embedded_graphics::pixelcolor::Rgb888::new(($num>>16) as u8,($num>>8) as u8,$num as u8)
+        embedded_graphics::pixelcolor::Rgb888::new(($num >> 16) as u8, ($num >> 8) as u8, $num as u8)
     };
 }
 

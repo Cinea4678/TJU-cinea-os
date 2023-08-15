@@ -1,18 +1,20 @@
 use core::fmt;
 use core::fmt::Write;
 use lazy_static::lazy_static;
+use spin::Mutex;
 use x86::io::outb;
 use x86_64::instructions::interrupts;
-use spin::Mutex;
 
 #[repr(u16)]
 enum IoPort {
-    Com1 = 0x3F8
+    Com1 = 0x3F8,
 }
 
 pub fn qemu_print(content: &str) {
     for ch in content.as_bytes() {
-        unsafe { outb(IoPort::Com1 as u16, *ch); };
+        unsafe {
+            outb(IoPort::Com1 as u16, *ch);
+        };
     }
 }
 

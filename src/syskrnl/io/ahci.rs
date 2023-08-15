@@ -1,63 +1,63 @@
 use alloc::boxed::Box;
 use alloc::collections::BTreeSet;
 use alloc::slice;
-use core::{mem, ptr};
 use core::alloc::Layout;
+use core::{mem, ptr};
 
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
-use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
+use x86_64::{PhysAddr, VirtAddr};
 
-use crate::{debugln};
+use crate::debugln;
 use crate::syskrnl::io;
 use crate::syskrnl::memory::translate_addr;
 
 #[repr(u8)]
-pub enum FisType{
-    FisTypeRegH2d = 0x27,	// Register FIS - host to device
-    FisTypeRegD2h = 0x34,	// Register FIS - device to host
-    FisTypeDmaAct = 0x39,	// DMA activate FIS - device to host
-    FisTypeDmaSetup = 0x41,	// DMA setup FIS - bidirectional
-    FisTypeData = 0x46,	// Data FIS - bidirectional
-    FisTypeBist = 0x58,	// BIST activate FIS - bidirectional
-    FisTypePioSetup = 0x5F,	// PIO setup FIS - device to host
-    FisTypeDevBits = 0xA1,	// Set device bits FIS - device to host
+pub enum FisType {
+    FisTypeRegH2d = 0x27,   // Register FIS - host to device
+    FisTypeRegD2h = 0x34,   // Register FIS - device to host
+    FisTypeDmaAct = 0x39,   // DMA activate FIS - device to host
+    FisTypeDmaSetup = 0x41, // DMA setup FIS - bidirectional
+    FisTypeData = 0x46,     // Data FIS - bidirectional
+    FisTypeBist = 0x58,     // BIST activate FIS - bidirectional
+    FisTypePioSetup = 0x5F, // PIO setup FIS - device to host
+    FisTypeDevBits = 0xA1,  // Set device bits FIS - device to host
 }
 
 #[repr(C)]
 #[derive(Debug)]
 pub struct FisRegH2d {
     // DWORD 0
-    fis_type: u8,      // FIS_TYPE_REG_H2D
+    fis_type: u8, // FIS_TYPE_REG_H2D
 
     // This is a byte with mixed fields, so I will use a private u8 and provide getters and setters for its parts.
     _pmport_rsv0_c: u8,
 
-    command: u8,       // Command register
-    featurel: u8,      // Feature register, 7:0
+    command: u8,  // Command register
+    featurel: u8, // Feature register, 7:0
 
     // DWORD 1
-    lba0: u8,          // LBA low register, 7:0
-    lba1: u8,          // LBA mid register, 15:8
-    lba2: u8,          // LBA high register, 23:16
-    device: u8,        // Device register
+    lba0: u8,   // LBA low register, 7:0
+    lba1: u8,   // LBA mid register, 15:8
+    lba2: u8,   // LBA high register, 23:16
+    device: u8, // Device register
 
     // DWORD 2
-    lba3: u8,          // LBA register, 31:24
-    lba4: u8,          // LBA register, 39:32
-    lba5: u8,          // LBA register, 47:40
-    featureh: u8,      // Feature register, 15:8
+    lba3: u8,     // LBA register, 31:24
+    lba4: u8,     // LBA register, 39:32
+    lba5: u8,     // LBA register, 47:40
+    featureh: u8, // Feature register, 15:8
 
     // DWORD 3
-    countl: u8,        // Count register, 7:0
-    counth: u8,        // Count register, 15:8
-    icc: u8,           // Isochronous command completion
-    control: u8,       // Control register
+    countl: u8,  // Count register, 7:0
+    counth: u8,  // Count register, 15:8
+    icc: u8,     // Isochronous command completion
+    control: u8, // Control register
 
     // DWORD 4
-    rsv1: [u8; 4],     // Reserved
+    rsv1: [u8; 4], // Reserved
 }
 
 impl FisRegH2d {
@@ -89,21 +89,21 @@ impl FisRegH2d {
     }
 }
 
-
 #[repr(C)]
 #[derive(Debug)]
-pub struct HbaMem {     // 0x00 - 0x2B, Generic Host Control
-    pub cap: Volatile<u32>,       // 0x00, Host capability
-    pub ghc: Volatile<u32>,       // 0x04, Global host control
-    pub is: Volatile<u32>,        // 0x08, Interrupt status
-    pub pi: Volatile<u32>,        // 0x0C, Port implemented
-    pub vs: Volatile<u32>,        // 0x10, Version
-    pub ccc_ctl: Volatile<u32>,   // 0x14, Command completion coalescing control
-    pub ccc_pts: Volatile<u32>,   // 0x18, Command completion coalescing ports
-    pub em_loc: Volatile<u32>,    // 0x1C, Enclosure management location
-    pub em_ctl: Volatile<u32>,    // 0x20, Enclosure management control
-    pub cap2: Volatile<u32>,      // 0x24, Host capabilities extended
-    pub bohc: Volatile<u32>,      // 0x28, BIOS/OS handoff control and status
+pub struct HbaMem {
+    // 0x00 - 0x2B, Generic Host Control
+    pub cap: Volatile<u32>,     // 0x00, Host capability
+    pub ghc: Volatile<u32>,     // 0x04, Global host control
+    pub is: Volatile<u32>,      // 0x08, Interrupt status
+    pub pi: Volatile<u32>,      // 0x0C, Port implemented
+    pub vs: Volatile<u32>,      // 0x10, Version
+    pub ccc_ctl: Volatile<u32>, // 0x14, Command completion coalescing control
+    pub ccc_pts: Volatile<u32>, // 0x18, Command completion coalescing ports
+    pub em_loc: Volatile<u32>,  // 0x1C, Enclosure management location
+    pub em_ctl: Volatile<u32>,  // 0x20, Enclosure management control
+    pub cap2: Volatile<u32>,    // 0x24, Host capabilities extended
+    pub bohc: Volatile<u32>,    // 0x28, BIOS/OS handoff control and status
 
     // 0x2C - 0x9F, Reserved
     pub rsv: [Volatile<u8>; 0xA0 - 0x2C],
@@ -118,40 +118,40 @@ pub struct HbaMem {     // 0x00 - 0x2B, Generic Host Control
 #[repr(C)]
 #[derive(Debug)]
 pub struct HbaPort {
-    pub clb: Volatile<u64>,       // 0x00, command list base address, 1K-byte aligned
-    pub fb: Volatile<u64>,        // 0x08, FIS base address, 256-byte aligned
-    pub is: Volatile<u32>,        // 0x10, interrupt status
-    pub ie: Volatile<u32>,        // 0x14, interrupt enable
-    pub cmd: Volatile<u32>,       // 0x18, command and status
-    pub rsv0: Volatile<u32>,      // 0x1C, Reserved
-    pub tfd: Volatile<u32>,       // 0x20, task file data
-    pub sig: Volatile<u32>,       // 0x24, signature
-    pub ssts: Volatile<u32>,      // 0x28, SATA status (SCR0:SStatus)
-    pub sctl: Volatile<u32>,      // 0x2C, SATA control (SCR2:SControl)
-    pub serr: Volatile<u32>,      // 0x30, SATA error (SCR1:SError)
-    pub sact: Volatile<u32>,      // 0x34, SATA active (SCR3:SActive)
-    pub ci: Volatile<u32>,        // 0x38, command issue
-    pub sntf: Volatile<u32>,      // 0x3C, SATA notification (SCR4:SNotification)
-    pub fbs: Volatile<u32>,       // 0x40, FIS-based switch control
+    pub clb: Volatile<u64>,         // 0x00, command list base address, 1K-byte aligned
+    pub fb: Volatile<u64>,          // 0x08, FIS base address, 256-byte aligned
+    pub is: Volatile<u32>,          // 0x10, interrupt status
+    pub ie: Volatile<u32>,          // 0x14, interrupt enable
+    pub cmd: Volatile<u32>,         // 0x18, command and status
+    pub rsv0: Volatile<u32>,        // 0x1C, Reserved
+    pub tfd: Volatile<u32>,         // 0x20, task file data
+    pub sig: Volatile<u32>,         // 0x24, signature
+    pub ssts: Volatile<u32>,        // 0x28, SATA status (SCR0:SStatus)
+    pub sctl: Volatile<u32>,        // 0x2C, SATA control (SCR2:SControl)
+    pub serr: Volatile<u32>,        // 0x30, SATA error (SCR1:SError)
+    pub sact: Volatile<u32>,        // 0x34, SATA active (SCR3:SActive)
+    pub ci: Volatile<u32>,          // 0x38, command issue
+    pub sntf: Volatile<u32>,        // 0x3C, SATA notification (SCR4:SNotification)
+    pub fbs: Volatile<u32>,         // 0x40, FIS-based switch control
     pub rsv1: [Volatile<u32>; 11],  // 0x44 ~ 0x6F, Reserved
     pub vendor: [Volatile<u32>; 4], // 0x70 ~ 0x7F, vendor specific
 }
 
 #[repr(C)]
 #[derive(Debug)]
-pub struct HbaCmdHeader{
+pub struct HbaCmdHeader {
     // DW0
-    dw0: u16,      // Combines cfl, a, w, p, r, b, c, rsv0, and pmp into two bytes
-    pub prdtl: u16,    // Physical region descriptor table length in entries
+    dw0: u16,       // Combines cfl, a, w, p, r, b, c, rsv0, and pmp into two bytes
+    pub prdtl: u16, // Physical region descriptor table length in entries
 
     // DW1
-    pub prdbc: Volatile<u32>,  // Physical region descriptor byte count transferred
+    pub prdbc: Volatile<u32>, // Physical region descriptor byte count transferred
 
     // DW2, 3
-    pub ctba: u64,   // Command table descriptor base address
+    pub ctba: u64, // Command table descriptor base address
 
     // DW4 - 7
-    pub rsv1: [u32; 4],  // Reserved
+    pub rsv1: [u32; 4], // Reserved
 }
 
 impl HbaCmdHeader {
@@ -269,16 +269,16 @@ impl HbaCmdHeader {
 #[derive(Debug)]
 pub struct HbaCmdTbl {
     // 0x00
-    pub cfis: [u8; 64],    // Command FIS
+    pub cfis: [u8; 64], // Command FIS
 
     // 0x40
-    pub acmd: [u8; 16],    // ATAPI command, 12 or 16 byte
+    pub acmd: [u8; 16], // ATAPI command, 12 or 16 byte
 
     // 0x50
-    pub rsv: [u8; 48],    // Reserved
+    pub rsv: [u8; 48], // Reserved
 
     // 0x80
-    prdt_entry: [HbaPrdtEntry; 0],    // Physical region descriptor table entries, 0 ~ 65535
+    prdt_entry: [HbaPrdtEntry; 0], // Physical region descriptor table entries, 0 ~ 65535
 }
 
 impl HbaCmdTbl {
@@ -286,7 +286,8 @@ impl HbaCmdTbl {
         let layout = Layout::from_size_align(
             mem::size_of::<Self>() + n * mem::size_of::<HbaPrdtEntry>(),
             mem::align_of::<HbaPrdtEntry>(),
-        ).unwrap();
+        )
+        .unwrap();
 
         unsafe {
             let raw = alloc::alloc::alloc_zeroed(layout);
@@ -310,10 +311,10 @@ impl HbaCmdTbl {
 pub struct HbaPrdtEntry {
     pub dba: u64,
     // Data base address
-    pub rsv0: u32,      // Reserved
+    pub rsv0: u32, // Reserved
 
     // DW3
-    pub dw3: u32,       // Byte count/Interrupt on completion
+    pub dw3: u32, // Byte count/Interrupt on completion
 }
 
 impl HbaPrdtEntry {
@@ -341,10 +342,10 @@ impl HbaPrdtEntry {
 }
 
 #[allow(dead_code)]
-const SATA_SIG_ATA: u32 = 0x0000_0101;      // SATA drive
-const SATA_SIG_ATAPI: u32 = 0xEB14_0101;    // SATAPI drive
-const SATA_SIG_SEMB: u32 = 0xC33C_0101;     // Enclosure management bridge
-const SATA_SIG_PM: u32 = 0x9669_0101;       // Port multiplier
+const SATA_SIG_ATA: u32 = 0x0000_0101; // SATA drive
+const SATA_SIG_ATAPI: u32 = 0xEB14_0101; // SATAPI drive
+const SATA_SIG_SEMB: u32 = 0xC33C_0101; // Enclosure management bridge
+const SATA_SIG_PM: u32 = 0x9669_0101; // Port multiplier
 
 const AHCI_DEV_NULL: u8 = 0;
 const AHCI_DEV_SATA: u8 = 1;
@@ -401,7 +402,7 @@ fn check_type(port: &HbaPort) -> u8 {
         SATA_SIG_ATAPI => AHCI_DEV_SATAPI,
         SATA_SIG_SEMB => AHCI_DEV_SEMB,
         SATA_SIG_PM => AHCI_DEV_PM,
-        _ => AHCI_DEV_SATA
+        _ => AHCI_DEV_SATA,
     }
 }
 
@@ -429,23 +430,28 @@ pub fn port_rebase(port: &mut HbaPort, port_no: u64) {
     // 命令列表条目最大数量：32
     // 命令列表最大大小：32 * 32 = 1K per Port （看懂了）
     port.clb.write(AHCI_PHYSIC_BASE + (port_no << 10));
-    unsafe { ptr::write_bytes((port.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 1024); }
+    unsafe {
+        ptr::write_bytes((port.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 1024);
+    }
 
     // FIS 偏移量：32K + 256 * port_no
     // FIS 条目大小：256byte per Port
     port.fb.write(AHCI_PHYSIC_BASE + (32 << 10) + (port_no << 8));
-    unsafe { ptr::write_bytes((port.fb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 256); }
+    unsafe {
+        ptr::write_bytes((port.fb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 256);
+    }
 
     // 命令表偏移量：40K + 8K * port_no
     // 命令表大小：256 * 32 = 8K per Port
     let cmd_header = unsafe { slice::from_raw_parts_mut((port.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader, 32) };
     for i in 0..32 {
-        cmd_header[i].prdtl = 8;    // 8 prdt entries per command table; 256 bytes per command table, 64+16+48+16*8
-
+        cmd_header[i].prdtl = 8; // 8 prdt entries per command table; 256 bytes per command table, 64+16+48+16*8
 
         // 命令表偏移量：40K + 8K * port_no +  cmd_header_index * 256
         cmd_header[i].ctba = AHCI_PHYSIC_BASE + (40 << 10) + (port_no << 13) + ((i as u64) << 8);
-        unsafe { ptr::write_bytes((cmd_header[i].ctba - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 256); }
+        unsafe {
+            ptr::write_bytes((cmd_header[i].ctba - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut u8, 0, 256);
+        }
     }
 
     start_cmd(port); // 重启命令引擎
@@ -453,7 +459,7 @@ pub fn port_rebase(port: &mut HbaPort, port_no: u64) {
 
 /// 启动命令引擎
 fn start_cmd(port: &mut HbaPort) {
-    while port.cmd.read() & HBA_PxCMD_CR > 0 {}  // 等待CR位被清除
+    while port.cmd.read() & HBA_PxCMD_CR > 0 {} // 等待CR位被清除
 
     // 置FRE和ST位
     port.cmd.update(|x| *x |= HBA_PxCMD_FRE);
@@ -473,10 +479,7 @@ fn stop_cmd(port: &mut HbaPort) {
 
 const ABAR_ADDR: u64 = 0xffffffff_febf1000;
 
-pub fn create_abar_memory_mapping(
-    mapper: &mut OffsetPageTable,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-) {
+pub fn create_abar_memory_mapping(mapper: &mut OffsetPageTable, frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
     let controller = io::pci::pci_find_device_by_class_code(0x01, 0x06);
     let abar_addr = io::pci::pci_config_read_u32(controller.0, controller.1, controller.2, 0x24);
 
@@ -486,16 +489,11 @@ pub fn create_abar_memory_mapping(
     let frame = PhysFrame::containing_address(PhysAddr::new(abar_addr as u64));
     let flags = Flags::PRESENT | Flags::WRITABLE;
 
-    let map_to_result = unsafe {
-        mapper.map_to(page, frame, flags, frame_allocator)
-    };
+    let map_to_result = unsafe { mapper.map_to(page, frame, flags, frame_allocator) };
     map_to_result.expect("Map_to_AHCI aBar Memory Failed").flush();
 }
 
-pub fn create_ahci_memory_mapping(
-    mapper: &mut OffsetPageTable,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-) {
+pub fn create_ahci_memory_mapping(mapper: &mut OffsetPageTable, frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
     use x86_64::structures::paging::PageTableFlags as Flags;
 
     // We need 16 pages
@@ -504,9 +502,7 @@ pub fn create_ahci_memory_mapping(
         let frame = PhysFrame::containing_address(PhysAddr::new(AHCI_PHYSIC_BASE + 0x1000 * i));
         let flags = Flags::PRESENT | Flags::WRITABLE;
 
-        let map_to_result = unsafe {
-            mapper.map_to(page, frame, flags, frame_allocator)
-        };
+        let map_to_result = unsafe { mapper.map_to(page, frame, flags, frame_allocator) };
         map_to_result.expect("Map_to_AHCI Memory Failed").flush();
     }
 }
@@ -576,7 +572,7 @@ impl HbaPort {
         if let Some(slot) = self.find_cmdslot() {
             let cmd_header = unsafe { &mut *((self.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader).add(slot as usize) };
             cmd_header.set_cfl((mem::size_of::<FisRegH2d>() / mem::size_of::<u32>()) as u8); // Command FIS size
-            cmd_header.set_w(false);        // Read from device
+            cmd_header.set_w(false); // Read from device
             cmd_header.prdtl = (((count - 1) >> 4) + 1) as u16;
 
             let mut cmd_table = HbaCmdTbl::with_entries(cmd_header.prdtl as usize);
@@ -591,10 +587,10 @@ impl HbaPort {
                     prdt_entry[i].set_dbc(8 * 1024 - 1); // 8K bytes (this value should always be set to 1 less than the actual value)
                     prdt_entry[i].set_i(true);
                     buf_addr += 8 * 1024; // 8K bytes
-                    count -= 16;          // 16 sectors
+                    count -= 16; // 16 sectors
                 } else {
                     prdt_entry[i].dba = buf_addr;
-                    prdt_entry[i].set_dbc((count << 9) - 1);  // 512 bytes per sector
+                    prdt_entry[i].set_dbc((count << 9) - 1); // 512 bytes per sector
                     prdt_entry[i].set_i(true);
                 }
             }
@@ -611,7 +607,7 @@ impl HbaPort {
             cmd_fis.lba4 = (pos >> 32) as u8;
             cmd_fis.lba5 = (pos >> 40) as u8;
 
-            cmd_fis.device = 1 << 6;  // LBA mode
+            cmd_fis.device = 1 << 6; // LBA mode
             cmd_fis.countl = (count & 0xFF) as u8;
             cmd_fis.counth = ((count >> 8) & 0xFF) as u8;
 
@@ -627,7 +623,7 @@ impl HbaPort {
                 let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                 false
             } else {
-                self.ci.update(|x| *x |= 1 << slot);  // 签发命令
+                self.ci.update(|x| *x |= 1 << slot); // 签发命令
 
                 // Wait for completion
                 loop {
@@ -668,7 +664,7 @@ impl HbaPort {
         if let Some(slot) = self.find_cmdslot() {
             let cmd_header = unsafe { &mut *((self.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader).add(slot as usize) };
             cmd_header.set_cfl((mem::size_of::<FisRegH2d>() / mem::size_of::<u32>()) as u8); // Command FIS size
-            cmd_header.set_w(true);        // Write to device
+            cmd_header.set_w(true); // Write to device
             cmd_header.prdtl = (((count - 1) >> 4) + 1) as u16;
 
             let mut cmd_table = HbaCmdTbl::with_entries(cmd_header.prdtl as usize);
@@ -683,10 +679,10 @@ impl HbaPort {
                     prdt_entry[i].set_dbc(8 * 1024 - 1); // 8K bytes (this value should always be set to 1 less than the actual value)
                     prdt_entry[i].set_i(true);
                     buf_addr += 8 * 1024; // 8K bytes
-                    count -= 16;          // 16 sectors
+                    count -= 16; // 16 sectors
                 } else {
                     prdt_entry[i].dba = buf_addr;
-                    prdt_entry[i].set_dbc((count << 9) - 1);  // 512 bytes per sector
+                    prdt_entry[i].set_dbc((count << 9) - 1); // 512 bytes per sector
                     prdt_entry[i].set_i(true);
                 }
             }
@@ -703,7 +699,7 @@ impl HbaPort {
             cmd_fis.lba4 = (pos >> 32) as u8;
             cmd_fis.lba5 = (pos >> 40) as u8;
 
-            cmd_fis.device = 1 << 6;  // LBA mode
+            cmd_fis.device = 1 << 6; // LBA mode
             cmd_fis.countl = (count & 0xFF) as u8;
             cmd_fis.counth = ((count >> 8) & 0xFF) as u8;
 
@@ -719,7 +715,7 @@ impl HbaPort {
                 let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                 false
             } else {
-                self.ci.update(|x| *x |= 1 << slot);  // 签发命令
+                self.ci.update(|x| *x |= 1 << slot); // 签发命令
 
                 // Wait for completion
                 loop {
@@ -756,7 +752,7 @@ impl HbaPort {
         if let Some(slot) = self.find_cmdslot() {
             let cmd_header = unsafe { &mut *((self.clb.read() - AHCI_PHYSIC_BASE + AHCI_BASE) as *mut HbaCmdHeader).add(slot as usize) };
             cmd_header.set_cfl((mem::size_of::<FisRegH2d>() / mem::size_of::<u32>()) as u8); // Command FIS size
-            cmd_header.set_w(false);        // Read from device
+            cmd_header.set_w(false); // Read from device
             cmd_header.prdtl = 1;
 
             let mut cmd_table = HbaCmdTbl::with_entries(1);
@@ -772,7 +768,7 @@ impl HbaPort {
             cmd_fis.set_c(1); // Command
             cmd_fis.command = ATA_CMD_IDENTIFY_DEVICE;
 
-            cmd_fis.device = 1 << 6;  // LBA mode
+            cmd_fis.device = 1 << 6; // LBA mode
 
             let cmd_table_addr = Box::into_raw(cmd_table) as u64;
             cmd_header.ctba = unsafe { translate_addr(cmd_table_addr).unwrap() };
@@ -786,7 +782,7 @@ impl HbaPort {
                 let _ = unsafe { Box::from_raw(cmd_table_addr as *mut HbaCmdTbl) };
                 None
             } else {
-                self.ci.update(|x| *x |= 1 << slot);  // 签发命令
+                self.ci.update(|x| *x |= 1 << slot); // 签发命令
 
                 // Wait for completion
                 loop {
@@ -810,14 +806,11 @@ impl HbaPort {
                     None
                 } else {
                     if buffer[83] & (1 << 10) > 0 {
-                        let lba48_max_sectors = ((buffer[103] as u64) << 48) |
-                            ((buffer[102] as u64) << 32) |
-                            ((buffer[101] as u64) << 16) |
-                            (buffer[100] as u64);
+                        let lba48_max_sectors =
+                            ((buffer[103] as u64) << 48) | ((buffer[102] as u64) << 32) | ((buffer[101] as u64) << 16) | (buffer[100] as u64);
                         Some(lba48_max_sectors)
                     } else {
-                        let max_sectors = ((buffer[60] as u64) << 16) |
-                            (buffer[61] as u64);
+                        let max_sectors = ((buffer[60] as u64) << 16) | (buffer[61] as u64);
                         Some(max_sectors)
                     }
                 }
@@ -827,5 +820,3 @@ impl HbaPort {
         }
     }
 }
-
-

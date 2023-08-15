@@ -4,10 +4,10 @@ use core::task::{Context, Poll};
 
 use conquer_once::spin::OnceCell;
 use crossbeam::queue::ArrayQueue;
-use futures_util::{Stream, StreamExt};
 use futures_util::task::AtomicWaker;
+use futures_util::{Stream, StreamExt};
 use lazy_static::lazy_static;
-use pc_keyboard::{DecodedKey, HandleControl, Keyboard, KeyCode, layouts, ScancodeSet1};
+use pc_keyboard::{layouts, DecodedKey, HandleControl, KeyCode, Keyboard, ScancodeSet1};
 use spin::Mutex;
 use x86::io::inb;
 use x86_64::instructions::interrupts;
@@ -52,7 +52,8 @@ pub struct ScancodeStream {
 
 impl ScancodeStream {
     pub fn new() -> Self {
-        SCANCODE_QUEUE.try_init_once(|| ArrayQueue::new(100))
+        SCANCODE_QUEUE
+            .try_init_once(|| ArrayQueue::new(100))
             .expect("ScancodeStream::new 只应当被调用一次哦");
         ScancodeStream { _private: () }
     }
@@ -69,50 +70,51 @@ impl Stream for ScancodeStream {
         }
 
         WAKER.register(&cx.waker());
-        match queue.pop(){
-            Some(scancode)=>{
+        match queue.pop() {
+            Some(scancode) => {
                 WAKER.take();
                 Poll::Ready(Some(scancode))
-            },
-            None => Poll::Pending
+            }
+            None => Poll::Pending,
         }
     }
 }
 
-pub async fn key_presses_handler(){
+pub async fn key_presses_handler() {
     let mut scancodes = ScancodeStream::new();
     let mut keyboard = Keyboard::new(layouts::Us104Key, ScancodeSet1, HandleControl::MapLettersToUnicode);
 
-    while let Some(scancode) = scancodes.next().await{
-        if let Ok(Some(key_event)) = keyboard.add_byte(scancode){
+    while let Some(scancode) = scancodes.next().await {
+        if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
             if let Some(key) = keyboard.process_keyevent(key_event) {
                 // debugln!("{:?}",key);
                 match key {
-                    DecodedKey::Unicode(character) => {key_event_handler(character)}
-                    DecodedKey::RawKey(key) => { undk_handler(key) }
+                    DecodedKey::Unicode(character) => key_event_handler(character),
+                    DecodedKey::RawKey(key) => undk_handler(key),
                 }
             }
         }
     }
 }
 
-lazy_static!{
-    pub static ref GUI_UNDK_KEY_EVENT_SUBSCRIBER: Mutex<Vec<usize>> = {
-        Mutex::new(Vec::new())
-    };
+lazy_static! {
+    pub static ref GUI_UNDK_KEY_EVENT_SUBSCRIBER: Mutex<Vec<usize>> = { Mutex::new(Vec::new()) };
 }
 
 fn undk_handler(ch: KeyCode) {
     let c = ch as u16;
-    for eid in GUI_TIME_UPDATE_EVENT_NEEDER.lock().iter(){
-        if let Some(pid) = event::EVENT_QUEUE.lock().wakeup_with_ret(*eid,gui_event_make_ret(GUI_EVENT_UNDK_KEY,c,0,0)){
+    for eid in GUI_TIME_UPDATE_EVENT_NEEDER.lock().iter() {
+        if let Some(pid) = event::EVENT_QUEUE
+            .lock()
+            .wakeup_with_ret(*eid, gui_event_make_ret(GUI_EVENT_UNDK_KEY, c, 0, 0))
+        {
             SCHEDULER.lock().wakeup(pid);
         }
     }
 }
 
-fn key_event_handler(ch:char){
-    if let Some(pid) = event::EVENT_QUEUE.lock().wakeup_with_ret(KEYBOARD_INPUT, ch as u32 as usize){
+fn key_event_handler(ch: char) {
+    if let Some(pid) = event::EVENT_QUEUE.lock().wakeup_with_ret(KEYBOARD_INPUT, ch as u32 as usize) {
         SCHEDULER.lock().wakeup(pid);
     }
 }

@@ -9,7 +9,7 @@ use cinea_os_sysapi::fs::{FileError, FileIO};
 
 lazy_static! {
     static ref DEVICE_TABLE: Mutex<BTreeMap<String, Box::<dyn FileIO>>> = {
-        let mut m: BTreeMap<String, Box::<dyn FileIO>> = BTreeMap::new();
+        let mut m: BTreeMap<String, Box<dyn FileIO>> = BTreeMap::new();
 
         m.insert(String::from("/dev/stdout"), Box::new(crate::syskrnl::io::StdOutDevice));
         m.insert(String::from("/dev/uptime"), Box::new(crate::syskrnl::time::UpTimeDevice));
@@ -26,12 +26,10 @@ pub fn read(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
     let mut lock = DEVICE_TABLE.lock();
     match lock.get_mut(path) {
         None => Err(FileError::NotFoundError),
-        Some(device) => {
-            match device.read(buf) {
-                Ok(len) => Ok(len),
-                Err(()) => Err(FileError::DeviceIOError)
-            }
-        }
+        Some(device) => match device.read(buf) {
+            Ok(len) => Ok(len),
+            Err(()) => Err(FileError::DeviceIOError),
+        },
     }
 }
 
@@ -39,12 +37,10 @@ pub fn write(path: &str, buf: &[u8]) -> Result<usize, FileError> {
     let mut lock = DEVICE_TABLE.lock();
     match lock.get_mut(path) {
         None => Err(FileError::NotFoundError),
-        Some(device) => {
-            match device.write(buf) {
-                Ok(len) => Ok(len),
-                Err(()) => Err(FileError::DeviceIOError)
-            }
-        }
+        Some(device) => match device.write(buf) {
+            Ok(len) => Ok(len),
+            Err(()) => Err(FileError::DeviceIOError),
+        },
     }
 }
 

@@ -5,8 +5,8 @@ use x86_64::instructions::interrupts::without_interrupts;
 
 use crate::syskrnl;
 use crate::syskrnl::graphic::GD;
-use crate::syskrnl::gui::{RENDER_OK, WINDOW_MANAGER};
 use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
+use crate::syskrnl::gui::{RENDER_OK, WINDOW_MANAGER};
 
 /// `PIT_FREQUENCY`的值是x86架构默认的
 pub const PIT_FREQUENCY: f64 = 3_579_545.0 / 3.0; // 1_193_181.666 Hz
@@ -24,24 +24,24 @@ static RENDER: AtomicU8 = AtomicU8::new(0);
 ///
 /// `divider` - 分频器
 /// `channel` - 通道（听说有4个?）
-pub fn set_pit_frequency_divider(divider: u16, channel: u8){
+pub fn set_pit_frequency_divider(divider: u16, channel: u8) {
     // 关中断
-    interrupts::without_interrupts(||{
+    interrupts::without_interrupts(|| {
         let bytes = divider.to_le_bytes();
         let operating_mode = 6; // 方波生成器
         let access_mode = 3; // 低字节和高字节都要写入
         unsafe {
             // 选择通道和模式
-            x86::io::outb(0x43,(channel << 6) | (access_mode << 4) | operating_mode);
+            x86::io::outb(0x43, (channel << 6) | (access_mode << 4) | operating_mode);
             // 写入分频器
-            x86::io::outb(0x40,bytes[0]);
-            x86::io::outb(0x40,bytes[1]);
+            x86::io::outb(0x40, bytes[0]);
+            x86::io::outb(0x40, bytes[1]);
         }
     })
 }
 
 /// PIT中断处理程序
-pub fn pit_interrupt_handler(){
+pub fn pit_interrupt_handler() {
     let time = PIT_TICKS.fetch_add(1, Ordering::Relaxed);
 
     // 每1/25秒渲染一次
@@ -82,7 +82,7 @@ pub fn time_between_ticks() -> f64 {
     PIT_INTERVAL
 }
 
-pub fn init(){
+pub fn init() {
     // PIT计时器
     set_pit_frequency_divider(PIT_DIVIDER as u16, 0);
     syskrnl::interrupts::set_irq_handler(0, pit_interrupt_handler);

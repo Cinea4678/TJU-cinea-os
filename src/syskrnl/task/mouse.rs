@@ -3,8 +3,8 @@ use core::task::{Context, Poll};
 
 use conquer_once::spin::OnceCell;
 use crossbeam::queue::ArrayQueue;
-use futures_util::{Stream, StreamExt};
 use futures_util::task::AtomicWaker;
+use futures_util::{Stream, StreamExt};
 use x86::io::inb;
 
 use crate::syskrnl::gui::cursor::MOUSE_CURSOR;
@@ -92,7 +92,8 @@ pub struct PackageStream {
 
 impl PackageStream {
     pub fn new() -> Self {
-        MOUSE_PACKAGE_QUEUE.try_init_once(|| ArrayQueue::new(100))
+        MOUSE_PACKAGE_QUEUE
+            .try_init_once(|| ArrayQueue::new(100))
             .expect("PackageStream::new 只应当被调用一次哦");
         PackageStream { _private: () }
     }
@@ -113,8 +114,8 @@ impl Stream for PackageStream {
             Some(package) => {
                 WAKER.take();
                 Poll::Ready(Some(package))
-            },
-            None => Poll::Pending
+            }
+            None => Poll::Pending,
         }
     }
 }
@@ -134,8 +135,5 @@ pub async fn mouse_handler() {
         } else if !btn_down && package.left_btn {
             btn_down = true;
         }
-
     }
 }
-
-

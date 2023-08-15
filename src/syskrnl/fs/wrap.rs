@@ -9,9 +9,9 @@ use fatfs::{DirEntry, Read, Seek, SeekFrom, Write};
 use lazy_static::lazy_static;
 use spin::Mutex;
 
-use cinea_os_sysapi::fs::{dirname, FileEntry, filename, Metadata, path_combine, realpath};
 use cinea_os_sysapi::fs as fsapi;
 use cinea_os_sysapi::fs::FileError::{NotAFileError, OSError};
+use cinea_os_sysapi::fs::{dirname, filename, path_combine, realpath, FileEntry, Metadata};
 use fsapi::FileError::{self, NotADirError, NotFoundError, RootDirError};
 
 use crate::syskrnl::fs::device::is_device;
@@ -26,7 +26,7 @@ lazy_static! {
     static ref DATA_DISK_FS: Mutex<fatfs::FileSystem<AhciDeviceReader, CosTimeProvider, Cp437Converter>> = {
         let reader = AhciDeviceReader::new(0).unwrap();
         let option = fatfs::FsOptions::new().oem_cp_converter(Cp437Converter).time_provider(CosTimeProvider);
-        let fs = fatfs::FileSystem::new(reader,option);
+        let fs = fatfs::FileSystem::new(reader, option);
         Mutex::new(fs.unwrap())
     };
 }
@@ -38,7 +38,9 @@ fn test() {
     reader.read(&mut buf).unwrap();
 
     println!("TEST AHCI and AHCI_READER:");
-    for n in buf { print!("{:02X} ", n) }
+    for n in buf {
+        print!("{:02X} ", n)
+    }
     println!();
 
     println!("DATAFS Type: {:?}", DATA_DISK_FS.lock().fat_type());
@@ -57,14 +59,17 @@ fn test() {
 //     None
 // }
 
-fn seekpath<'a, IO, TP, OCC>(path: &str, root_dir: fatfs::Dir<'a, IO, TP, OCC>)
-                             -> Result<DirEntry<'a, IO, TP, OCC>, FileError>
-    where IO: fatfs::ReadWriteSeek, TP: fatfs::TimeProvider, OCC: fatfs::OemCpConverter {
+fn seekpath<'a, IO, TP, OCC>(path: &str, root_dir: fatfs::Dir<'a, IO, TP, OCC>) -> Result<DirEntry<'a, IO, TP, OCC>, FileError>
+where
+    IO: fatfs::ReadWriteSeek,
+    TP: fatfs::TimeProvider,
+    OCC: fatfs::OemCpConverter,
+{
     // Split the path
     let path = realpath(path, proc::dir().as_str());
     let dirname = dirname(path.as_str());
     let filename = filename(path.as_str());
-    let mut spilted_path: Vec<_> = dirname.split('/').filter(|x| { x.len() > 0 }).collect();
+    let mut spilted_path: Vec<_> = dirname.split('/').filter(|x| x.len() > 0).collect();
     fsapi::process_relative_path(&mut spilted_path)?;
 
     let mut dir = root_dir;
@@ -110,13 +115,18 @@ pub fn list(path: &str) -> Result<Vec<FileEntry>, FileError> {
         return Err(FileError::NotADirError);
     }
 
-    let result: Vec<FileEntry> = entry.to_dir()
+    let result: Vec<FileEntry> = entry
+        .to_dir()
         .iter()
-        .filter(|dir_entry| { dir_entry.is_ok() })
+        .filter(|dir_entry| dir_entry.is_ok())
         .map(|dir_entry| {
             let dir_entry = dir_entry.unwrap();
             let new_path = path_combine(path, dir_entry.file_name().as_str());
-            if dir_entry.is_dir() { FileEntry::Dir(fsapi::Metadata::from_dir_entry(dir_entry, new_path.as_str())) } else { FileEntry::File(fsapi::Metadata::from_dir_entry(dir_entry, new_path.as_str())) }
+            if dir_entry.is_dir() {
+                FileEntry::Dir(fsapi::Metadata::from_dir_entry(dir_entry, new_path.as_str()))
+            } else {
+                FileEntry::File(fsapi::Metadata::from_dir_entry(dir_entry, new_path.as_str()))
+            }
         })
         .collect();
     Ok(result)
@@ -158,38 +168,49 @@ pub struct SysyemFileEntry {
 static USER_FILE_HANDLER_ID: AtomicUsize = AtomicUsize::new(4);
 
 lazy_static! {
-    static ref SYSTEM_FILE_TABLE: Mutex<BTreeMap<String,SysyemFileEntry>> = Mutex::new(BTreeMap::new());
+    static ref SYSTEM_FILE_TABLE: Mutex<BTreeMap<String, SysyemFileEntry>> = Mutex::new(BTreeMap::new());
 }
 
 fn register_opened_file(path: String, write: bool, device: bool) -> Result<usize, FileError> {
     let mut lock = SYSTEM_FILE_TABLE.lock();
     if let Some(sft) = lock.get_mut(path.as_str()) {
-        if sft.mutex { Err(FileError::FileBusyError) } else {
+        if sft.mutex {
+            Err(FileError::FileBusyError)
+        } else {
             let fh = proc::file_handles();
             let new_id = USER_FILE_HANDLER_ID.fetch_add(1, Ordering::Relaxed);
-            fh.lock().insert(new_id, OpenFileHandle {
-                id: new_id,
-                path,
-                write,
-                device,
-            });
+            fh.lock().insert(
+                new_id,
+                OpenFileHandle {
+                    id: new_id,
+                    path,
+                    write,
+                    device,
+                },
+            );
             sft.share += 1;
             Ok(new_id)
         }
     } else {
-        lock.insert(path.clone(), SysyemFileEntry {
-            path: path.clone(),
-            share: 1,
-            mutex: write,
-        });
+        lock.insert(
+            path.clone(),
+            SysyemFileEntry {
+                path: path.clone(),
+                share: 1,
+                mutex: write,
+            },
+        );
         let fh = proc::file_handles();
         let new_id = USER_FILE_HANDLER_ID.fetch_add(1, Ordering::Relaxed);
-        fh.lock().insert(new_id, OpenFileHandle {
-            id: new_id,
-            path,
-            write,
-            device,
-        });
+        fh.lock().insert(
+            new_id,
+            OpenFileHandle {
+                id: new_id,
+                path,
+                write,
+                device,
+            },
+        );
         Ok(new_id)
     }
 }
@@ -199,17 +220,23 @@ pub fn open(path: &str, write: bool) -> Result<usize, FileError> {
     let path = fsapi::path_standardize(path)?;
 
     // Device Check
-    if is_device(path.as_str()) { return register_opened_file(path, write, true); }
+    if is_device(path.as_str()) {
+        return register_opened_file(path, write, true);
+    }
 
     let data = metadata(path.as_str())?;
-    if !data.is_file() { Err(FileError::NotAFileError) } else {
+    if !data.is_file() {
+        Err(FileError::NotAFileError)
+    } else {
         register_opened_file(path, write, false)
     }
 }
 
 /// 关闭文件（内核）
 pub fn close(id: usize) -> Result<(), FileError> {
-    if id < 4 { return Err(NotFoundError); } // 不允许关闭系统设备
+    if id < 4 {
+        return Err(NotFoundError);
+    } // 不允许关闭系统设备
     let fh = proc::file_handles();
     let mut lock = fh.lock();
     if !lock.contains_key(&id) {
@@ -219,7 +246,9 @@ pub fn close(id: usize) -> Result<(), FileError> {
     lock.remove(&id);
     let mut lock = SYSTEM_FILE_TABLE.lock();
     let sft = lock.get_mut(path.as_str());
-    if sft.is_none() { return Err(OSError); }
+    if sft.is_none() {
+        return Err(OSError);
+    }
     let sft = sft.unwrap();
     if sft.share == 1 {
         lock.remove(path.as_str());
@@ -234,13 +263,17 @@ fn write_all_path(path: &str, buf: &[u8]) -> Result<usize, FileError> {
     let lock = DATA_DISK_FS.lock();
     let root = lock.root_dir();
     let file = seekpath(path, root)?;
-    if !file.is_file() { return Err(NotAFileError); }
+    if !file.is_file() {
+        return Err(NotAFileError);
+    }
     let mut file = file.to_file();
 
-    if file.seek(SeekFrom::Start(0)).is_err() { return Err(OSError); }
+    if file.seek(SeekFrom::Start(0)).is_err() {
+        return Err(OSError);
+    }
     match file.write_all(buf) {
         Err(_) => Err(OSError),
-        Ok(()) => Ok(buf.len())
+        Ok(()) => Ok(buf.len()),
     }
 }
 
@@ -261,7 +294,9 @@ pub fn write_all(id: usize, buf: &[u8]) -> Result<usize, FileError> {
             } else {
                 write_all_path(handle.path.as_str(), buf)
             }
-        } else { Err(FileError::OpenMethodError) }
+        } else {
+            Err(FileError::OpenMethodError)
+        }
     } else {
         Err(NotFoundError)
     }
@@ -273,14 +308,16 @@ pub fn write_with_path(path: &str, buf: &[u8]) -> Result<usize, FileError> {
     let path = fsapi::path_standardize(path)?;
     let fh = file_handles();
     let fh_lock = fh.lock();
-    if let Some(handle) = fh_lock.iter().find(|x| { (*x).1.path == path }) {
+    if let Some(handle) = fh_lock.iter().find(|x| (*x).1.path == path) {
         if handle.1.write {
             if handle.1.device {
                 write_all_device(path.as_str(), buf)
             } else {
                 write_all_path(path.as_str(), buf)
             }
-        } else { Err(FileError::OpenMethodError) }
+        } else {
+            Err(FileError::OpenMethodError)
+        }
     } else {
         Err(NotFoundError)
     }
@@ -290,10 +327,14 @@ fn read_path(path: &str, store: &mut [u8]) -> Result<usize, FileError> {
     let lock = DATA_DISK_FS.lock();
     let root = lock.root_dir();
     let file = seekpath(path, root)?;
-    if !file.is_file() { return Err(NotAFileError); }
+    if !file.is_file() {
+        return Err(NotAFileError);
+    }
     let mut file = file.to_file();
 
-    if file.seek(SeekFrom::Start(0)).is_err() { return Err(OSError); }
+    if file.seek(SeekFrom::Start(0)).is_err() {
+        return Err(OSError);
+    }
     let mut buf = [0u8; 1024];
     let mut pos = 0usize;
     while let Ok(len) = file.read(&mut buf) {
@@ -331,7 +372,7 @@ pub fn read_with_path(path: &str, buf: &mut [u8]) -> Result<usize, FileError> {
     let path = fsapi::path_standardize(path)?;
     let fh = file_handles();
     let fh_lock = fh.lock();
-    if let Some(handle) = fh_lock.iter().find(|x| { (*x).1.path == path }) {
+    if let Some(handle) = fh_lock.iter().find(|x| (*x).1.path == path) {
         if handle.1.device {
             read_device(path.as_str(), buf)
         } else {
@@ -354,7 +395,7 @@ mod tests {
     use super::fsapi::process_relative_path;
 
     #[test_case]
-    fn test_ahci(){
+    fn test_ahci() {
         super::test();
         println!("[ok]  FileSystem AHCI AHCI_Reader")
     }

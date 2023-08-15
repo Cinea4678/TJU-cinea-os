@@ -1,9 +1,9 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 // 从CMOS读取日期和时间
+use crate::syskrnl;
+use crate::syskrnl::interrupts::set_irq_handler;
 use x86::io::{inb, outb};
 use x86_64::instructions::interrupts;
-use crate::{syskrnl};
-use crate::syskrnl::interrupts::set_irq_handler;
 
 const CURRENT_YEAR: u32 = 2023;
 
@@ -71,7 +71,9 @@ pub fn read_rtc() -> RawTime {
         time.day = get_rtc_register(0x07);
         time.month = get_rtc_register(0x08);
         time.year = get_rtc_register(0x09) as u32;
-        if time == last_time { break; }
+        if time == last_time {
+            break;
+        }
     }
 
     // 处理时间格式

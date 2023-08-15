@@ -1,7 +1,7 @@
 pub mod roundroll;
 
-use core::fmt::Debug;
 use crate::syskrnl::proc::Process;
+use core::fmt::Debug;
 
 /// 进程调度器
 pub trait ProcessScheduler: Send + Debug {
@@ -16,12 +16,11 @@ pub trait ProcessScheduler: Send + Debug {
     fn timeup(&mut self) -> usize;
 
     /// 主动退出运行
-    fn giveup(&mut self)->usize;
+    fn giveup(&mut self) -> usize;
 
     /// 进程等待
-    fn wait(&mut self)->usize;
+    fn wait(&mut self) -> usize;
 
     /// 进程唤醒
-    fn wakeup(&mut self, process:usize)->usize;
+    fn wakeup(&mut self, process: usize) -> usize;
 }
-

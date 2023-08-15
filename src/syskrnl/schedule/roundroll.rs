@@ -63,7 +63,7 @@ impl RoundRollScheduler {
             empty: 0,
             cursor: 0,
         };
-        s.map.insert(0, 0);  // 插入0-0映射
+        s.map.insert(0, 0); // 插入0-0映射
         s
     }
 

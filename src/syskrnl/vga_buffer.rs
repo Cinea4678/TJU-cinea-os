@@ -2,12 +2,12 @@
 
 use core::fmt;
 
+use crate::println;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
 use x86::io::outb;
 use x86_64::instructions::interrupts;
-use crate::println;
 
 /// VGA标准颜色
 #[allow(dead_code)]
@@ -185,7 +185,7 @@ pub fn _print(args: fmt::Arguments) {
     use core::fmt::Write;
 
     // 防止死锁
-    interrupts::without_interrupts(||{
+    interrupts::without_interrupts(|| {
         WRITER.lock().write_fmt(args).unwrap();
     })
 }
@@ -194,7 +194,7 @@ pub fn _print(args: fmt::Arguments) {
 // macro_rules! vga_print {
 //     ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
 // }
-// 
+//
 // #[macro_export]
 // macro_rules! vga_println {
 //     () => ($crate::print!("\n"));
@@ -202,7 +202,8 @@ pub fn _print(args: fmt::Arguments) {
 // }
 
 pub fn print_something() {
-    println!("
+    println!(
+        "
       _____ _                     ____   _____
      / ____(_)                   / __ \\ / ____|
     | |     _ _ __   ___  __ _  | |  | | (___
@@ -210,17 +211,18 @@ pub fn print_something() {
     | |____| | | | |  __/ (_| | | |__| |____) |      Written by
      \\_____|_|_| |_|\\___|\\__,_|  \\____/|_____/   Zhang Yao (Cinea)
 
-                                               ");
+                                               "
+    );
 
-//     println!("
-// --------------------------------------------------
-//      _______                     ____  _____
-//     / ____(_)___  ___  ____ _   / __ \\/ ___/
-//    / /   / / __ \\/ _ \\/ __ `/  / / / /\\__ \\
-//   / /___/ / / / /  __/ /_/ /  / /_/ /___/ /
-//   \\____/_/_/ /_/\\___/\\__,_/   \\____//____/
-// --------------------------------------------------
-//     ");
+    //     println!("
+    // --------------------------------------------------
+    //      _______                     ____  _____
+    //     / ____(_)___  ___  ____ _   / __ \\/ ___/
+    //    / /   / / __ \\/ _ \\/ __ `/  / / / /\\__ \\
+    //   / /___/ / / / /  __/ /_/ /  / /_/ /___/ /
+    //   \\____/_/_/ /_/\\___/\\__,_/   \\____//____/
+    // --------------------------------------------------
+    //     ");
 
     println!("Every smallest dream matters.\n\n");
     println!("\t----Hello World From Cinea's Operating System\n");

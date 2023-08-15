@@ -6,18 +6,18 @@ use core::sync::atomic::Ordering;
 use embedded_graphics::pixelcolor::raw::RawU24;
 use embedded_graphics::pixelcolor::Rgb888;
 
-use cinea_os_sysapi::ExitCode;
 use cinea_os_sysapi::fs::read_all_from_path;
 use cinea_os_sysapi::gui::WindowGraphicMemory;
 use cinea_os_sysapi::syscall::PanicInfo;
 use cinea_os_sysapi::time::{Date, DateTime, Time};
+use cinea_os_sysapi::ExitCode;
 
-use crate::{debugln, print, println, syscall_deserialize, syscall_serialized_ret, syskrnl};
-use crate::syskrnl::{clock, event, proc};
 use crate::syskrnl::event::{EVENT_QUEUE, GUI_EID_START};
 use crate::syskrnl::gui::{font, WINDOW_MANAGER};
 use crate::syskrnl::proc::Process;
 use crate::syskrnl::task::keyboard;
+use crate::syskrnl::{clock, event, proc};
+use crate::{debugln, print, println, syscall_deserialize, syscall_serialized_ret, syskrnl};
 
 pub fn exit(_code: ExitCode) -> usize {
     syskrnl::proc::exit()
@@ -29,7 +29,7 @@ pub fn sleep(seconds: f64) {
 
 /// FIXME 在未来，要改正。现在是测试用途
 pub fn spawn(number: usize, args_ptr: usize, args_len: usize, args_cap: usize) -> ExitCode {
-    debugln!("{:#x},{}",args_ptr,args_len);
+    debugln!("{:#x},{}", args_ptr, args_len);
     let subprocess: &[u8] = match number {
         0x00 => include_bytes!("../../../dsk/bin/hello"),
         0x01 => include_bytes!("../../../dsk/bin/infprint"),
@@ -66,7 +66,7 @@ pub fn spawn_from_path(ptr: usize) -> usize {
 
 pub fn log(msg: usize, len: usize) -> usize {
     let ptr = syskrnl::proc::ptr_from_addr(msg as u64); // cnmd不看人家源码根本想不到
-    //debugln!("log: ptr:{:p} ori_ptr:{:#x}",ptr,msg);
+                                                        //debugln!("log: ptr:{:p} ori_ptr:{:#x}",ptr,msg);
     let msg = unsafe { core::slice::from_raw_parts(ptr, len) };
     match core::str::from_utf8(msg) {
         Err(_) => {
@@ -91,7 +91,11 @@ pub fn alloc(size: usize, align: usize) -> usize {
         // 生长
         syskrnl::proc::allocator_grow(grow_size);
     }
-    let ptr = unsafe { allocator.lock().alloc(core::alloc::Layout::from_size_align(size, align).expect("proc mem alloc fail 5478")) };
+    let ptr = unsafe {
+        allocator
+            .lock()
+            .alloc(core::alloc::Layout::from_size_align(size, align).expect("proc mem alloc fail 5478"))
+    };
     ptr as usize
 }
 
@@ -99,7 +103,10 @@ pub fn free(ptr: usize, size: usize, align: usize) {
     let allocator = syskrnl::proc::heap_allocator();
     unsafe {
         let mut lock = allocator.lock();
-        lock.dealloc(ptr as *mut u8, core::alloc::Layout::from_size_align(size, align).expect("proc layout fail 5472"))
+        lock.dealloc(
+            ptr as *mut u8,
+            core::alloc::Layout::from_size_align(size, align).expect("proc layout fail 5472"),
+        )
     }
 }
 
@@ -187,7 +194,7 @@ pub fn panic(ptr: usize) -> usize {
 
 pub fn create_window(ptr: usize) -> usize {
     let obj: (String, usize) = syscall_deserialize!(ptr);
-    syscall_serialized_ret!(&syskrnl::gui::WINDOW_MANAGER.lock().create_window(obj.0.as_str(),obj.1))
+    syscall_serialized_ret!(&syskrnl::gui::WINDOW_MANAGER.lock().create_window(obj.0.as_str(), obj.1))
 }
 
 pub fn display_font_string(ptr: usize) -> usize {
@@ -200,7 +207,7 @@ pub fn display_font_string(ptr: usize) -> usize {
 
 pub fn load_font(ptr: usize) -> usize {
     let obj: (String, String) = syscall_deserialize!(ptr);
-    let ret = font::load_font(obj.0.as_str(),obj.1.as_str());
+    let ret = font::load_font(obj.0.as_str(), obj.1.as_str());
     syscall_serialized_ret!(&ret.is_ok())
 }
 

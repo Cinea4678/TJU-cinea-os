@@ -1,6 +1,6 @@
-use crate::{hlt_loop, rgb888};
-use crate::syskrnl::graphic::{GD, GL};
 use crate::syskrnl::graphic::text::TextWriter;
+use crate::syskrnl::graphic::{GD, GL};
+use crate::{hlt_loop, rgb888};
 
 pub struct PanicInfo<'a> {
     title: &'a str,
@@ -9,10 +9,7 @@ pub struct PanicInfo<'a> {
 
 impl<'a> PanicInfo<'a> {
     pub fn new(title: &'a str, description: &'a str) -> PanicInfo<'a> {
-        PanicInfo {
-            title,
-            description,
-        }
+        PanicInfo { title, description }
     }
 
     pub fn get_title(&self) -> &str {
@@ -34,19 +31,19 @@ pub fn handle_panic(info: &PanicInfo) -> ! {
     }
 
     let mut lock = p_lock[0].lock();
-    lock.display_img(0,0,include_bytes!("../../../assets/BlueScreen_small.bmp"));
+    lock.display_img(0, 0, include_bytes!("../../../assets/BlueScreen_small.bmp"));
     drop(lock);
     let p_lock = GL.read();
     let mut lock = p_lock[1].lock();
-    for r in lock.data.iter_mut(){
-        for p in r.iter_mut(){
+    for r in lock.data.iter_mut() {
+        for p in r.iter_mut() {
             p.0 = rgb888!(0);
             p.1 = false;
         }
     }
     drop(lock);
 
-    let mut writer = TextWriter{
+    let mut writer = TextWriter {
         text_area_height: 570,
         text_area_width: 700,
         text_area_pos: (22, 40),
@@ -65,7 +62,7 @@ pub fn handle_panic(info: &PanicInfo) -> ! {
     writer.write_string("\n");
     writer.write_string(info.get_description());
 
-    GD.lock().render(0,0,600,800);
+    GD.lock().render(0, 0, 600, 800);
 
     hlt_loop();
 }

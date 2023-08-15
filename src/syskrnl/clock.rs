@@ -1,12 +1,12 @@
-use alloc::collections::{BTreeSet};
-use core::sync::atomic::{AtomicBool, Ordering};
-use lazy_static::lazy_static;
-use spin::Mutex;
-use cinea_os_sysapi::event::{gui_event_make_ret, GUI_EVENT_TIME_UPDATE};
 use crate::syskrnl;
 use crate::syskrnl::event::EVENT_QUEUE;
 use crate::syskrnl::proc::SCHEDULER;
 use crate::syskrnl::time;
+use alloc::collections::BTreeSet;
+use cinea_os_sysapi::event::{gui_event_make_ret, GUI_EVENT_TIME_UPDATE};
+use core::sync::atomic::{AtomicBool, Ordering};
+use lazy_static::lazy_static;
+use spin::Mutex;
 
 const DAYS_BEFORE_MONTH: [u64; 13] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365];
 
@@ -35,9 +35,7 @@ fn is_leap_year(year: u32) -> bool {
 }
 
 fn days_before_year(year: u32) -> u64 {
-    (2003..year).fold(0, |days, y| {
-        days + if is_leap_year(y) { 366 } else { 365 }
-    })
+    (2003..year).fold(0, |days, y| days + if is_leap_year(y) { 366 } else { 365 })
 }
 
 fn days_before_month(year: u32, month: u8) -> u64 {
@@ -55,7 +53,8 @@ pub fn realtime() -> f64 {
         + 3600 * raw_time.hour as u64
         + 60 * raw_time.minute as u64
         + raw_time.second as u64
-        + 10540800 + 68400;
+        + 10540800
+        + 68400;
 
     let fract = time::time_between_ticks() * (time::ticks() - time::last_rtc_update()) as f64;
 
@@ -75,10 +74,12 @@ pub fn half_sec_handler() {
     if !eof {
         // debugln!("Half sec: {:?}", GUI_TIME_UPDATE_EVENT_NEEDER.lock());
         for eid in GUI_TIME_UPDATE_EVENT_NEEDER.lock().iter() {
-            if let Some(pid) = EVENT_QUEUE.lock().wakeup_with_ret(*eid, gui_event_make_ret(GUI_EVENT_TIME_UPDATE, 0, 0, 0)) {
+            if let Some(pid) = EVENT_QUEUE
+                .lock()
+                .wakeup_with_ret(*eid, gui_event_make_ret(GUI_EVENT_TIME_UPDATE, 0, 0, 0))
+            {
                 SCHEDULER.lock().wakeup(pid);
             }
         }
     }
 }
-

@@ -7,27 +7,27 @@ use embedded_graphics::pixelcolor::Rgb888;
 use lazy_static::lazy_static;
 use spin::{Mutex, RwLock};
 
-use cinea_os_sysapi::event::{GUI_EVENT_EXIT, gui_event_make_ret, GUI_EVENT_MOUSE_CLICK};
+use cinea_os_sysapi::event::{gui_event_make_ret, GUI_EVENT_EXIT, GUI_EVENT_MOUSE_CLICK};
 use cinea_os_sysapi::fs::read_all_from_path;
-pub use cinea_os_sysapi::gui::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use cinea_os_sysapi::gui::WindowGraphicMemory;
+pub use cinea_os_sysapi::gui::{WINDOW_HEIGHT, WINDOW_WIDTH};
 
 use crate::rgb888;
-use crate::syskrnl::{graphic, proc};
 use crate::syskrnl::event::{EVENT_QUEUE, GUI_EID_START};
-use crate::syskrnl::graphic::{GL, HEIGHT, resolve_32rgba, WIDTH};
+use crate::syskrnl::graphic::{resolve_32rgba, GL, HEIGHT, WIDTH};
 use crate::syskrnl::proc::SCHEDULER;
+use crate::syskrnl::{graphic, proc};
 
 lazy_static! {
     pub static ref WINDOW_MANAGER: Mutex<WindowManager> = Mutex::new(WindowManager::new());
-    static ref ASSETS: RwLock<BTreeMap<String,Vec<(usize, usize, Rgb888)>>> = RwLock::new(BTreeMap::new());
+    static ref ASSETS: RwLock<BTreeMap<String, Vec<(usize, usize, Rgb888)>>> = RwLock::new(BTreeMap::new());
 }
 
 pub struct WindowManager {
     windows: Vec<Window>,
     layout: WindowLayoutManager,
     highlight: usize,
-    moving_window_now: bool
+    moving_window_now: bool,
 }
 
 pub struct WindowLayoutManager {
@@ -38,7 +38,7 @@ pub struct WindowLayoutManager {
 pub struct Window {
     process_id: usize,
     title: String,
-    mem_addr: usize
+    mem_addr: usize,
 }
 
 impl WindowLayoutManager {
@@ -61,7 +61,11 @@ impl WindowLayoutManager {
 
 impl Window {
     pub fn new(process_id: usize, title: &str, mem_addr: usize) -> Self {
-        Self { process_id, title: String::from(title), mem_addr }
+        Self {
+            process_id,
+            title: String::from(title),
+            mem_addr,
+        }
     }
 }
 
@@ -69,10 +73,7 @@ impl WindowManager {
     pub fn new() -> Self {
         Self {
             windows: Vec::new(),
-            layout: WindowLayoutManager::new_from_layout(vec![
-                (30, 450, false),
-                (250, 450, false),
-            ]),
+            layout: WindowLayoutManager::new_from_layout(vec![(30, 450, false), (250, 450, false)]),
             highlight: 0,
             moving_window_now: false,
         }
@@ -82,7 +83,7 @@ impl WindowManager {
         let pid = proc::id();
         if let None = self.windows.iter().find(|w| w.process_id == pid) {
             if self.windows.len() < self.layout.layouts.len() {
-                let layout_i = self.layout.layouts.iter().enumerate().find(|l| l.1.2 == false).unwrap().0;
+                let layout_i = self.layout.layouts.iter().enumerate().find(|l| l.1 .2 == false).unwrap().0;
                 if layout_i >= self.windows.len() {
                     self.windows.push(Window::new(pid, title, gm_addr));
                 } else {
@@ -118,7 +119,11 @@ impl WindowManager {
         if active {
             writer.display_resolved(x + 2, y + WINDOW_WIDTH - 20, ASSETS.read().get("WindowActive").expect("Read ASSETS Fail"));
         } else {
-            writer.display_resolved(x + 2, y + WINDOW_WIDTH - 20, ASSETS.read().get("WindowInactive").expect("Read ASSETS Fail"));
+            writer.display_resolved(
+                x + 2,
+                y + WINDOW_WIDTH - 20,
+                ASSETS.read().get("WindowInactive").expect("Read ASSETS Fail"),
+            );
         }
     }
 
@@ -133,9 +138,7 @@ impl WindowManager {
             if self.layout.layouts[i].2 {
                 let layout = &self.layout.layouts[i];
                 self.draw_window_frame(layout.0, layout.1, window, &mut lock, false);
-                let data = unsafe {
-                    &*(window.mem_addr as *const WindowGraphicMemory)
-                };
+                let data = unsafe { &*(window.mem_addr as *const WindowGraphicMemory) };
                 lock.display_from_copied(layout.0 + 20, layout.1 + 2, data);
             }
         }
@@ -144,9 +147,7 @@ impl WindowManager {
                 let layout = &self.layout.layouts[self.highlight];
                 let window = &self.windows[self.highlight];
                 self.draw_window_frame(layout.0, layout.1, window, &mut lock, true);
-                let data = unsafe {
-                    &*(window.mem_addr as *const WindowGraphicMemory)
-                };
+                let data = unsafe { &*(window.mem_addr as *const WindowGraphicMemory) };
                 lock.display_from_copied(layout.0 + 20, layout.1 + 2, data);
             }
         }
@@ -161,7 +162,10 @@ impl WindowManager {
             if y < 18 {
                 // Close Button
                 let ret = gui_event_make_ret(GUI_EVENT_EXIT, 0, 0, 0);
-                if let Some(pid) = EVENT_QUEUE.lock().wakeup_with_ret(GUI_EID_START + self.windows[window_index].process_id, ret) {
+                if let Some(pid) = EVENT_QUEUE
+                    .lock()
+                    .wakeup_with_ret(GUI_EID_START + self.windows[window_index].process_id, ret)
+                {
                     SCHEDULER.lock().wakeup(pid);
                 }
             } else if y < 38 {
@@ -172,7 +176,10 @@ impl WindowManager {
             let x = x - 20;
             let y = y - 2;
             let ret = gui_event_make_ret(GUI_EVENT_MOUSE_CLICK, x as u16, y as u16, 0);
-            if let Some(pid) = EVENT_QUEUE.lock().wakeup_with_ret(GUI_EID_START + self.windows[window_index].process_id, ret) {
+            if let Some(pid) = EVENT_QUEUE
+                .lock()
+                .wakeup_with_ret(GUI_EID_START + self.windows[window_index].process_id, ret)
+            {
                 SCHEDULER.lock().wakeup(pid);
             }
         }
@@ -190,7 +197,7 @@ impl WindowManager {
         //     非活动窗口：转为活动窗口
         //
 
-        debugln!("Mouse Click:{},{}",x,y);
+        debugln!("Mouse Click:{},{}", x, y);
 
         if self.moving_window_now {
             // 移动窗口到鼠标位置
@@ -220,7 +227,9 @@ pub fn init() {
     let move_btn = read_all_from_path("/sys/ast/window_move_btn.bmp").expect("Read ASSETS fail");
     let active = read_all_from_path("/sys/ast/window_active.bmp").expect("Read ASSETS fail");
     let inactive = read_all_from_path("/sys/ast/window_inactive.bmp").expect("Read ASSETS fail");
-    ASSETS.write().insert(String::from("WindowCloseBtn"), resolve_32rgba(close_btn.as_slice()));
+    ASSETS
+        .write()
+        .insert(String::from("WindowCloseBtn"), resolve_32rgba(close_btn.as_slice()));
     ASSETS.write().insert(String::from("WindowMoveBtn"), resolve_32rgba(move_btn.as_slice()));
     ASSETS.write().insert(String::from("WindowActive"), resolve_32rgba(active.as_slice()));
     ASSETS.write().insert(String::from("WindowInactive"), resolve_32rgba(inactive.as_slice()));

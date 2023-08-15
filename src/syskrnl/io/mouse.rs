@@ -1,8 +1,8 @@
+use crate::syskrnl;
+use crate::syskrnl::task::mouse::mouse_interrupt_handler;
 use x86::io::{inb, outb};
 use x86_64::instructions::interrupts;
 use x86_64::instructions::port::Port;
-use crate::syskrnl;
-use crate::syskrnl::task::mouse::mouse_interrupt_handler;
 
 const ACK: u8 = 0xFA;
 
@@ -18,7 +18,7 @@ fn send_command(cmd: u8) {
     }
 }
 
-pub fn init(){
+pub fn init() {
     // 开启鼠标设备
     let mut port_64 = Port::<u8>::new(0x64);
     let mut port_60 = Port::<u8>::new(0x60);

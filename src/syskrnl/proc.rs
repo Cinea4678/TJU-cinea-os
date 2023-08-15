@@ -16,12 +16,12 @@ use x86_64::VirtAddr;
 
 use cinea_os_sysapi::ExitCode;
 
-use crate::{debugln, syskrnl};
-use crate::syskrnl::allocator::{alloc_pages, fix_page_fault_in_userspace, Locked};
 use crate::syskrnl::allocator::linked_list::LinkedListAllocator;
+use crate::syskrnl::allocator::{alloc_pages, fix_page_fault_in_userspace, Locked};
 use crate::syskrnl::fs::OpenFileHandle;
-use crate::syskrnl::schedule::ProcessScheduler;
 use crate::syskrnl::schedule::roundroll::RoundRollScheduler;
+use crate::syskrnl::schedule::ProcessScheduler;
+use crate::{debugln, syskrnl};
 
 // const MAX_FILE_HANDLES: usize = 64;
 /// 最大进程数，先写2个，后面再改
@@ -33,7 +33,7 @@ const MAX_FILE_HANDLES: usize = 64;
 pub static PID: AtomicUsize = AtomicUsize::new(0);
 lazy_static! {
     static ref PID_POOL: Mutex<BTreeSet<usize>> = {
-        let pool:BTreeSet<_> = (1..MAX_PROCS).collect();
+        let pool: BTreeSet<_> = (1..MAX_PROCS).collect();
         Mutex::new(pool)
     };
 }
@@ -42,10 +42,7 @@ pub static PROC_HEAP_ADDR: AtomicUsize = AtomicUsize::new(0x0002_0000_0000);
 const DEFAULT_HEAP_SIZE: usize = 0x1_000_000; // 默认堆内存大小:1MB
 
 lazy_static! {
-    pub static ref SCHEDULER: Mutex<Box<dyn ProcessScheduler + 'static + Send>> = {
-        Mutex::new(Box::new(RoundRollScheduler::new()))
-    };
-
+    pub static ref SCHEDULER: Mutex<Box<dyn ProcessScheduler + 'static + Send>> = { Mutex::new(Box::new(RoundRollScheduler::new())) };
     pub static ref PROCESS_TABLE: RwLock<[Box<Process>; MAX_PROCS]> = {
         let table: [Box<Process>; MAX_PROCS] = [(); MAX_PROCS].map(|_| Box::new(Process::new(0)));
         RwLock::new(table)
@@ -106,18 +103,26 @@ impl ProcessData {
         let file_handles = Arc::new(Mutex::new(BTreeMap::new()));
         let lock = file_handles.clone();
         let mut lock = lock.lock();
-        lock.insert(0, OpenFileHandle {
-            id: 0,
-            path: "/dev/stdout".to_string(),
-            write: true,
-            device: true,
-        });
+        lock.insert(
+            0,
+            OpenFileHandle {
+                id: 0,
+                path: "/dev/stdout".to_string(),
+                write: true,
+                device: true,
+            },
+        );
         // let mut file_handles = [(); MAX_FILE_HANDLES].map(|_| None);
         // file_handles[0] = Some(Box::new(Resource::Device(Device::Console(Console::new())))); // stdin
         // file_handles[1] = Some(Box::new(Resource::Device(Device::Console(Console::new())))); // stdout
         // file_handles[2] = Some(Box::new(Resource::Device(Device::Console(Console::new())))); // stderr
         // file_handles[3] = Some(Box::new(Resource::Device(Device::Null))); // stdnull
-        Self { env, dir, user, file_handles }
+        Self {
+            env,
+            dir,
+            user,
+            file_handles,
+        }
     }
 }
 
@@ -285,7 +290,9 @@ pub fn allocator_grow(size: usize) {
     let allocator = table[id()].allocator.clone();
     let addr = PROC_HEAP_ADDR.fetch_add(size, Ordering::SeqCst);
     alloc_pages(&mut mapper, addr as u64, size).expect("proc mem grow fail 1545");
-    unsafe { allocator.lock().grow(addr, size); };
+    unsafe {
+        allocator.lock().grow(addr, size);
+    };
 }
 
 pub fn file_handles() -> Arc<Mutex<BTreeMap<usize, OpenFileHandle>>> {
@@ -301,7 +308,7 @@ pub fn exit() -> usize {
     syskrnl::allocator::free_pages(proc.code_addr, MAX_PROC_SIZE);
     PID_POOL.lock().insert(id());
     let next_pid = SCHEDULER.lock().terminate(proc);
-    debugln!("EXIT:{} -> {}",id(),next_pid);
+    debugln!("EXIT:{} -> {}", id(), next_pid);
     next_pid
 }
 
@@ -362,9 +369,9 @@ impl Process {
         let mut entry_point = 0;
         let code_ptr = kernel_code_addr as *mut u8;
         let _code_size = bin.len();
-        if bin[0..4] == ELF_MAGIC { // 进程代码是ELF格式的
+        if bin[0..4] == ELF_MAGIC {
+            // 进程代码是ELF格式的
             if let Ok(obj) = object::File::parse(bin) {
-
                 // 先在用户页表上分配
                 alloc_pages(&mut mapper, code_addr, proc_size as usize).expect("proc mem alloc 754");
                 // // 接下来，把用户页表的地址映射到内核页表上，并在内核页表上分配
@@ -372,11 +379,16 @@ impl Process {
                 // alloc_pages_to_known_phys(&mut kernel_mapper, kernel_code_addr, proc_size as usize, user_code_phys_frame.as_u64(), true).expect("proc mem alloc 564");
 
                 entry_point = obj.entry();
-                debugln!("entry_point:{:#x}",entry_point);
+                debugln!("entry_point:{:#x}", entry_point);
                 for segment in obj.segments() {
                     let addr = segment.address() as usize;
                     if let Ok(data) = segment.data() {
-                        debugln!("before flight? codeaddr,addr,datalen is {:#x},{:#x},{}", code_ptr as usize + addr, addr, data.len());
+                        debugln!(
+                            "before flight? codeaddr,addr,datalen is {:#x},{:#x},{}",
+                            code_ptr as usize + addr,
+                            addr,
+                            data.len()
+                        );
                         for (i, b) in data.iter().enumerate() {
                             unsafe {
                                 //debugln!("code:       {:#x}", code_ptr.add(addr + i) as usize);
@@ -393,7 +405,8 @@ impl Process {
                     core::ptr::write(code_ptr.add(i), *b);
                 }
             }
-        } else { // 文件头错误
+        } else {
+            // 文件头错误
             return Err(());
         }
 
@@ -453,30 +466,36 @@ impl Process {
 
         // 处理参数
         // 重建指针-长度对
-        let ptr_len_pair: Vec<(usize, usize)> = unsafe {
-            Vec::from_raw_parts(args_ptr as *mut (usize, usize), args_len, args_cap)
-        };
+        let ptr_len_pair: Vec<(usize, usize)> = unsafe { Vec::from_raw_parts(args_ptr as *mut (usize, usize), args_len, args_cap) };
         // 重建参数数组
-        let args: Vec<&str> = ptr_len_pair.iter().map(|pair| unsafe {
-            let slice = core::slice::from_raw_parts(pair.0 as *const u8, pair.1);
-            //debugln!("{:?}",slice);
-            core::str::from_utf8(slice).expect("utf8 fail 8547")
-        }).collect();
+        let args: Vec<&str> = ptr_len_pair
+            .iter()
+            .map(|pair| unsafe {
+                let slice = core::slice::from_raw_parts(pair.0 as *const u8, pair.1);
+                //debugln!("{:?}",slice);
+                core::str::from_utf8(slice).expect("utf8 fail 8547")
+            })
+            .collect();
         // 在子进程分配用于存放参数的堆内存
         let mut addr = unsafe {
-            self.allocator.lock().alloc(core::alloc::Layout::from_size_align(1024, 1).expect("Layout problem 8741"))
+            self.allocator
+                .lock()
+                .alloc(core::alloc::Layout::from_size_align(1024, 1).expect("Layout problem 8741"))
         } as u64;
         // 将参数复制到这些内存上
-        let vec: Vec<&str> = args.iter().map(|arg| {
-            let ptr = addr as *mut u8;
-            addr += arg.len() as u64;
-            unsafe {
-                let s = core::slice::from_raw_parts_mut(ptr, arg.len());
-                s.copy_from_slice(arg.as_bytes());
-                //debugln!("{:?}",s);
-                core::str::from_utf8_unchecked(s)
-            }
-        }).collect();
+        let vec: Vec<&str> = args
+            .iter()
+            .map(|arg| {
+                let ptr = addr as *mut u8;
+                addr += arg.len() as u64;
+                unsafe {
+                    let s = core::slice::from_raw_parts_mut(ptr, arg.len());
+                    s.copy_from_slice(arg.as_bytes());
+                    //debugln!("{:?}",s);
+                    core::str::from_utf8_unchecked(s)
+                }
+            })
+            .collect();
         let align = core::mem::align_of::<&str>() as u64;
         addr += align - (addr % align);
         let args = vec.as_slice();
@@ -496,7 +515,7 @@ impl Process {
 
         debugln!("LAUNCH");
         set_id(self.id); // 要换咯！
-        // 发射！
+                         // 发射！
         unsafe {
             let (_, flags) = Cr3::read();
             Cr3::write(self.page_table_frame, flags);

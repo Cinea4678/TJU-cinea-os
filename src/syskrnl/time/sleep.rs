@@ -2,26 +2,18 @@
 
 use alloc::collections::{BTreeMap, VecDeque};
 
-
-
-
+use cinea_os_sysapi::event::{gui_event_make_ret, SLEEP_WAKEUP};
 use lazy_static::lazy_static;
 use spin::Mutex;
-use cinea_os_sysapi::event::{gui_event_make_ret, SLEEP_WAKEUP};
 
-use crate::syskrnl::event::{EVENT_QUEUE, EventType};
+use crate::syskrnl::event::{EventType, EVENT_QUEUE};
 use crate::syskrnl::time;
 use crate::syskrnl::time::TICKS_PER_SECOND;
 
 lazy_static! {
-    pub static ref WAKEUP_QUEUE: Mutex<VecDeque<usize>> = {
-        Mutex::new(VecDeque::new())
-    };
-    pub static ref WAKEUP_MAP: Mutex<BTreeMap<usize, VecDeque<EventType>>> = {
-        Mutex::new(BTreeMap::new())
-    };
+    pub static ref WAKEUP_QUEUE: Mutex<VecDeque<usize>> = { Mutex::new(VecDeque::new()) };
+    pub static ref WAKEUP_MAP: Mutex<BTreeMap<usize, VecDeque<EventType>>> = { Mutex::new(BTreeMap::new()) };
 }
-
 
 pub fn init() {}
 
@@ -37,10 +29,17 @@ pub fn check_wakeup() -> Option<usize> {
                 if map_queue.len() == 0 {
                     lock.remove(&first);
                 }
-                EVENT_QUEUE.lock().wakeup_with_ret(eid, gui_event_make_ret(SLEEP_WAKEUP as u16, 0, 0, 0)) // 让正在等待GUI事件的程序也能处理
-            } else { None }
-        } else { None }
-    } else { None }
+                EVENT_QUEUE.lock().wakeup_with_ret(eid, gui_event_make_ret(SLEEP_WAKEUP as u16, 0, 0, 0))
+            // 让正在等待GUI事件的程序也能处理
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 pub fn add_sleep(time: usize, eid: usize) {

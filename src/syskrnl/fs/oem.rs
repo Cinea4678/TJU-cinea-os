@@ -12,10 +12,18 @@ impl Debug for Cp437Converter {
 
 impl fatfs::OemCpConverter for Cp437Converter {
     fn decode(&self, oem_char: u8) -> char {
-        if oem_char < 128 { oem_char as char } else { DECODING_TABLE_CP437[oem_char as usize - 128] }
+        if oem_char < 128 {
+            oem_char as char
+        } else {
+            DECODING_TABLE_CP437[oem_char as usize - 128]
+        }
     }
 
     fn encode(&self, uni_char: char) -> Option<u8> {
-        if uni_char.is_ascii() { Some(uni_char as u8) } else { ENCODING_TABLE_CP437.get(&uni_char).cloned() }
+        if uni_char.is_ascii() {
+            Some(uni_char as u8)
+        } else {
+            ENCODING_TABLE_CP437.get(&uni_char).cloned()
+        }
     }
 }

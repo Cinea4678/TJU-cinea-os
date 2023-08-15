@@ -5,8 +5,8 @@ use lazy_static::lazy_static;
 use rusttype::ScaledGlyph;
 use spin::Mutex;
 
-use crate::syskrnl::graphic::{DEFAULT_RGB888, GL, rgb888};
 use crate::syskrnl::graphic::font::get_font;
+use crate::syskrnl::graphic::{rgb888, DEFAULT_RGB888, GL};
 
 /// 提交到内存中的HD字符
 #[derive(Debug, Clone)]
@@ -40,17 +40,17 @@ pub struct TextWriter {
 
 lazy_static! {
     pub static ref TEXT_WRITER: Mutex<TextWriter> = {
-        Mutex::new(TextWriter{
-            text_area_height:TEXT_AREA_HEIGHT,
-            text_area_width:TEXT_AREA_WIDTH,
-            text_area_pos:TEXT_AREA_POS,
+        Mutex::new(TextWriter {
+            text_area_height: TEXT_AREA_HEIGHT,
+            text_area_width: TEXT_AREA_WIDTH,
+            text_area_pos: TEXT_AREA_POS,
             y_position: 0,
             line_position: 0,
             line_height: TEXT_HEIGHT,
             line_gap: 4,
-            max_line: TEXT_AREA_HEIGHT / (TEXT_HEIGHT+4),
+            max_line: TEXT_AREA_HEIGHT / (TEXT_HEIGHT + 4),
             color: TEXT_COLOR,
-            layer: 1
+            layer: 1,
         })
     };
 }
@@ -68,8 +68,14 @@ impl TextWriter {
 
                 let p_lock = GL.read();
                 let mut lock = p_lock[self.layer].lock();
-                lock.display_font(glyph, (self.line_height + self.line_gap) * self.line_position + self.text_area_pos.0,
-                                  self.y_position + self.text_area_pos.1, TEXT_SIZE, self.line_height, self.color);
+                lock.display_font(
+                    glyph,
+                    (self.line_height + self.line_gap) * self.line_position + self.text_area_pos.0,
+                    self.y_position + self.text_area_pos.1,
+                    TEXT_SIZE,
+                    self.line_height,
+                    self.color,
+                );
 
                 drop(lock);
 
@@ -90,7 +96,6 @@ impl TextWriter {
         }
         let _ex = self.line_position;
     }
-
 
     fn new_line(&mut self) {
         // 1. 回车

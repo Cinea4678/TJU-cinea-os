@@ -1,8 +1,8 @@
-mod wrap;
+mod ahci;
 mod ata;
+pub mod device;
 mod oem;
 mod time;
-pub mod device;
-mod ahci;
+mod wrap;
 
 pub use wrap::*;

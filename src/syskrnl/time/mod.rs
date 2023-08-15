@@ -5,13 +5,13 @@ pub use datetime::*;
 pub use pit::PIT_PER_SECOND as TICKS_PER_SECOND;
 pub use sleep::{add_sleep, check_wakeup};
 
-use crate::syskrnl::time::cmos::{RawTime, read_rtc};
+use crate::syskrnl::time::cmos::{read_rtc, RawTime};
 
 pub mod cmos;
-mod pit;
-pub mod tsc;
 mod datetime;
+mod pit;
 mod sleep;
+pub mod tsc;
 
 const TIME_ZONE: u8 = 8;
 

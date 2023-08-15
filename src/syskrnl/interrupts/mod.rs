@@ -7,12 +7,12 @@ use spin::Mutex;
 use x86_64::registers::control::Cr3;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, InterruptStackFrameValue, PageFaultErrorCode};
 
-use crate::{debugln, println, syskrnl};
 use crate::syskrnl::gui::panic;
 use crate::syskrnl::io::qemu::qemu_print;
 use crate::syskrnl::proc::{Registers, SCHEDULER};
 use crate::syskrnl::time;
 use crate::syskrnl::time::ticks;
+use crate::{debugln, println, syskrnl};
 
 pub mod pics;
 
@@ -82,7 +82,9 @@ macro_rules! irq_handler {
         pub extern "x86-interrupt" fn $handler(_stack_frame: InterruptStackFrame) {
             let handlers = IRQ_HANDLERS.lock();
             handlers[$irq]();
-            unsafe { pics::PICS.lock().notify_end_of_interrupt(interrupt_index($irq)); }
+            unsafe {
+                pics::PICS.lock().notify_end_of_interrupt(interrupt_index($irq));
+            }
         }
     };
 }
@@ -128,7 +130,11 @@ extern "x86-interrupt" fn double_fault_handler(_stack_frame: InterruptStackFrame
 
 /// 一般保护异常处理函数
 extern "x86-interrupt" fn general_protection_fault_handler(stack_frame: InterruptStackFrame, error_code: u64) {
-    debugln!("EXCEPTION: GENERAL PROTECTION FAULT\nStack Frame: {:#?}\nError: {:?}\n", stack_frame, error_code);
+    debugln!(
+        "EXCEPTION: GENERAL PROTECTION FAULT\nStack Frame: {:#?}\nError: {:?}\n",
+        stack_frame,
+        error_code
+    );
 
     let panic_desc = format!("Stack Frame: {:#?}\nError: {:?}\n", stack_frame, error_code);
     let panic_info = panic::PanicInfo::new("一般保护异常 General Protection", panic_desc.as_str());
@@ -209,18 +215,22 @@ extern "sysv64" fn syscall_handler(stack_frame: &mut InterruptStackFrame, regs: 
     let arg3 = regs.rdx;
     let arg4 = regs.r8;
 
-    if n == cinea_os_sysapi::call::SPAWN { // 保存现场
+    if n == cinea_os_sysapi::call::SPAWN {
+        // 保存现场
         syskrnl::proc::set_stack_frame(**stack_frame);
         syskrnl::proc::set_registers(*regs);
     }
 
     let res = syskrnl::syscall::dispatcher(n, arg1, arg2, arg3, arg4);
 
-    if n == cinea_os_sysapi::call::EXIT { // 恢复现场
+    if n == cinea_os_sysapi::call::EXIT {
+        // 恢复现场
         debugln!("恢复现场");
-        debugln!("额外信息：{:?}",SCHEDULER.lock());
+        debugln!("额外信息：{:?}", SCHEDULER.lock());
         let next_pid = res;
-        unsafe { switch_context_to(next_pid, stack_frame, regs); }
+        unsafe {
+            switch_context_to(next_pid, stack_frame, regs);
+        }
     } else {
         regs.rax = res;
     }
@@ -271,7 +281,9 @@ extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &m
                 syskrnl::proc::set_stack_frame(**stack_frame);
                 syskrnl::proc::set_registers(*regs);
 
-                unsafe { switch_context_to(next_pid, stack_frame, regs); }
+                unsafe {
+                    switch_context_to(next_pid, stack_frame, regs);
+                }
             }
 
             let lock = syskrnl::event::EVENT_DATA.lock();
@@ -315,7 +327,9 @@ extern "sysv64" fn proc_wait(stack_frame: &mut InterruptStackFrame, regs: &mut R
     let next_pid = syskrnl::event::dispatcher(n, arg1, arg2, arg3, arg4);
 
     // 恢复现场
-    unsafe { switch_context_to(next_pid, stack_frame, regs); }
+    unsafe {
+        switch_context_to(next_pid, stack_frame, regs);
+    }
 
     unsafe { pics::PICS.lock().notify_end_of_interrupt(0x82) };
 }

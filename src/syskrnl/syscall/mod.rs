@@ -7,93 +7,52 @@ use cinea_os_sysapi::ExitCode;
 ///
 /// 2023/7/11，怀着激动的心情，创建这个mod
 ///
-
 mod service;
 
 pub fn dispatcher(syscall_id: usize, arg1: usize, arg2: usize, arg3: usize, arg4: usize) -> usize {
-    interrupts::without_interrupts(|| {
-        match syscall_id {
-            EXIT => service::exit(ExitCode::from(arg1)),
-            SPAWN => service::spawn(arg1, arg2, arg3, arg4) as usize,
-            INFO => service::info(arg1),
-            DUP => unimplemented!(),
-            DELETE => unimplemented!(),
-            STOP => unimplemented!(),
-            SLEEP => {
-                service::sleep(f64::from_bits(arg1 as u64));
-                0
-            }
-            LOG => {
-                service::log(arg1, arg2)
-            }
-            ALLOC => {
-                service::alloc(arg1, arg2)
-            }
-            FREE => {
-                service::free(arg1, arg2, arg3);
-                0
-            }
-            PANIC => {
-                service::panic(arg1)
-            }
-            NO_SCHE => {
-                service::stop_schedule();
-                0
-            }
-            CON_SCHE => {
-                service::restart_schedule();
-                0
-            }
-            TEST_SERDE => {
-                service::test_serde(arg1)
-            }
-            LIST => {
-                service::list(arg1)
-            }
-            OPEN => {
-                service::open(arg1)
-            }
-            WRITE_ALL => {
-                service::write_all(arg1)
-            }
-            READ => {
-                service::read(arg1)
-            }
-            WRITE_PATH => {
-                service::write_path(arg1)
-            }
-            READ_PATH => {
-                service::read_path(arg1)
-            }
-            SPAWN_FROM_PATH => {
-                service::spawn_from_path(arg1)
-            }
-            CREATE_WINDOW => {
-                service::create_window(arg1)
-            }
-            DISPLAY_FONT_STRING => {
-                service::display_font_string(arg1)
-            }
-            LOAD_FONT => {
-                service::load_font(arg1)
-            }
-            DESTROY_WINDOW => {
-                service::destroy_window()
-            }
-            REGISTER_TIMER => {
-                service::register_timer(arg1)
-            }
-            GUI_SUBSCRIBE_TIME_UPDATE => {
-                service::gui_time_update_register()
-            }
-            READ_TIME => {
-                service::read_time()
-            }
-            GUI_SUBSCRIBE_KEYBOARD => {
-                service::gui_time_update_register()
-            }
-            _ => panic!("unknown syscall id: {}", syscall_id),
+    interrupts::without_interrupts(|| match syscall_id {
+        EXIT => service::exit(ExitCode::from(arg1)),
+        SPAWN => service::spawn(arg1, arg2, arg3, arg4) as usize,
+        INFO => service::info(arg1),
+        DUP => unimplemented!(),
+        DELETE => unimplemented!(),
+        STOP => unimplemented!(),
+        SLEEP => {
+            service::sleep(f64::from_bits(arg1 as u64));
+            0
         }
+        LOG => service::log(arg1, arg2),
+        ALLOC => service::alloc(arg1, arg2),
+        FREE => {
+            service::free(arg1, arg2, arg3);
+            0
+        }
+        PANIC => service::panic(arg1),
+        NO_SCHE => {
+            service::stop_schedule();
+            0
+        }
+        CON_SCHE => {
+            service::restart_schedule();
+            0
+        }
+        TEST_SERDE => service::test_serde(arg1),
+        LIST => service::list(arg1),
+        OPEN => service::open(arg1),
+        WRITE_ALL => service::write_all(arg1),
+        READ => service::read(arg1),
+        WRITE_PATH => service::write_path(arg1),
+        READ_PATH => service::read_path(arg1),
+        SPAWN_FROM_PATH => service::spawn_from_path(arg1),
+        CREATE_WINDOW => service::create_window(arg1),
+        DISPLAY_FONT_STRING => service::display_font_string(arg1),
+        LOAD_FONT => service::load_font(arg1),
+        DESTROY_WINDOW => service::destroy_window(),
+        REGISTER_TIMER => service::register_timer(arg1),
+        GUI_SUBSCRIBE_TIME_UPDATE => service::gui_time_update_register(),
+        READ_TIME => service::read_time(),
+        GUI_SUBSCRIBE_KEYBOARD => service::gui_time_update_register(),
+        _ => panic!("unknown syscall id: {}", syscall_id),
     })
 }
 
@@ -117,7 +76,6 @@ macro_rules! syscall_deserialize {
         syscall_deserialized(&vec_data).unwrap()
     }};
 }
-
 
 #[cfg(test)]
 mod test {

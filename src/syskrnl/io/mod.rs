@@ -1,13 +1,13 @@
+use cinea_os_sysapi::fs::FileIO;
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
-use cinea_os_sysapi::fs::FileIO;
 
+pub mod ahci;
+pub mod ata;
+pub mod mouse;
 pub mod pci;
 pub mod qemu;
-pub mod mouse;
-pub mod ata;
-pub mod ahci;
 
 pub enum VideoMode {
     Text,
@@ -28,7 +28,7 @@ impl VideoMode {
 }
 
 lazy_static! {
-    pub static ref VIDEO_MODE : Mutex<VideoMode> = Mutex::new(VideoMode::Text);
+    pub static ref VIDEO_MODE: Mutex<VideoMode> = Mutex::new(VideoMode::Text);
 }
 
 #[macro_export]

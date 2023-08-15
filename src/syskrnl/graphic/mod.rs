@@ -1,10 +1,10 @@
-use alloc::{format, vec};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
+use alloc::{format, vec};
 use core::cmp::min;
 use core::fmt;
 
-
+use cinea_os_sysapi::gui::WindowGraphicMemory;
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use lazy_static::lazy_static;
 use rusttype::{point, Rect, ScaledGlyph};
@@ -14,19 +14,18 @@ use volatile::Volatile;
 use x86_64::instructions::interrupts;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB};
 use x86_64::VirtAddr;
-use cinea_os_sysapi::gui::WindowGraphicMemory;
 
-use crate::{rgb888};
+use crate::rgb888;
 use crate::syskrnl::graphic::color::alpha_mix;
 use crate::syskrnl::graphic::font::get_font;
 use crate::syskrnl::graphic::text::TEXT_WRITER;
 use crate::syskrnl::io::qemu::qemu_print;
 use crate::syskrnl::io::VIDEO_MODE;
 
-pub mod vbe;
+pub mod color;
 pub mod font;
 pub mod text;
-pub mod color;
+pub mod vbe;
 
 // 相关配置
 pub const WIDTH: usize = 800;
@@ -64,10 +63,10 @@ lazy_static! {
     };
 }
 
-pub fn enter_wide_mode(
-    mapper: &mut OffsetPageTable,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
-    unsafe { vbe::bga_enter_wide(mapper, frame_allocator); }
+pub fn enter_wide_mode(mapper: &mut OffsetPageTable, frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
+    unsafe {
+        vbe::bga_enter_wide(mapper, frame_allocator);
+    }
     VIDEO_MODE.lock().set_graphic();
 }
 
@@ -92,7 +91,9 @@ impl PhysicalWriter {
         qemu_print(format!("{},{},{},{}\n", x, y, x_end, y_end).as_str());
         for i in x..x_end {
             for j in y..y_end {
-                unsafe { self.display_pixel(i, j, color); };
+                unsafe {
+                    self.display_pixel(i, j, color);
+                };
             }
         }
     }
@@ -101,7 +102,9 @@ impl PhysicalWriter {
         match Bmp::<Rgb888>::from_slice(bmp_data) {
             Ok(bmp) => {
                 for Pixel(position, color) in bmp.pixels() {
-                    unsafe { self.display_pixel(x + position.y as usize, y + position.x as usize, color); };
+                    unsafe {
+                        self.display_pixel(x + position.y as usize, y + position.x as usize, color);
+                    };
                 }
             }
             Err(error) => {
@@ -110,7 +113,16 @@ impl PhysicalWriter {
         }
     }
 
-    pub fn display_font(&mut self, glyph: ScaledGlyph, x_pos: usize, y_pos: usize, size: f32, line_height: usize, fg_color: Rgb888, bg_color: Rgb888) {
+    pub fn display_font(
+        &mut self,
+        glyph: ScaledGlyph,
+        x_pos: usize,
+        y_pos: usize,
+        size: f32,
+        line_height: usize,
+        fg_color: Rgb888,
+        bg_color: Rgb888,
+    ) {
         let bbox = glyph.exact_bounding_box().unwrap_or(Rect {
             min: point(0.0, 0.0),
             max: point(size, size),
@@ -127,10 +139,21 @@ impl PhysicalWriter {
     }
 
     /// 敬请注意：此方法不检查换行
-    pub unsafe fn display_font_string(&mut self, s: &str, x_pos: usize, y_pos: usize, size: f32, line_height: usize, fg_color: Rgb888, bg_color: Rgb888) {
+    pub unsafe fn display_font_string(
+        &mut self,
+        s: &str,
+        x_pos: usize,
+        y_pos: usize,
+        size: f32,
+        line_height: usize,
+        fg_color: Rgb888,
+        bg_color: Rgb888,
+    ) {
         let mut y_pos = y_pos;
         for ch in s.chars() {
-            if y_pos >= WIDTH { return; }
+            if y_pos >= WIDTH {
+                return;
+            }
             let (glyph, hm) = get_font(ch, size);
             self.display_font(glyph, x_pos, y_pos, size, line_height, fg_color, bg_color);
             y_pos += hm.advance_width as usize + 1usize;
@@ -240,15 +263,13 @@ impl Writer {
         match RawBmp::from_slice(bmp_data) {
             Ok(bmp) => {
                 let cm = match bmp.header().channel_masks {
-                    None => {
-                        ChannelMasks {
-                            blue: 0x000000FF,
-                            green: 0x0000FF00,
-                            red: 0x00FF0000,
-                            alpha: 0xFF000000,
-                        }
+                    None => ChannelMasks {
+                        blue: 0x000000FF,
+                        green: 0x0000FF00,
+                        red: 0x00FF0000,
+                        alpha: 0xFF000000,
                     },
-                    Some(cm) => cm
+                    Some(cm) => cm,
                 };
                 let mut ar = 0;
                 let mut am = cm.alpha;
@@ -293,7 +314,9 @@ impl Writer {
     pub unsafe fn display_font_string(&mut self, s: &str, x_pos: usize, y_pos: usize, size: f32, line_height: usize, color: Rgb888) {
         let mut y_pos = y_pos;
         for ch in s.chars() {
-            if y_pos >= WIDTH { return; }
+            if y_pos >= WIDTH {
+                return;
+            }
             let (glyph, hm) = get_font(ch, size);
             self.display_font(glyph, x_pos, y_pos, size, line_height, color);
             y_pos += hm.advance_width as usize + 1usize;
@@ -330,7 +353,9 @@ impl PhysicalWriter {
     pub fn render(&mut self, sx: usize, sy: usize, ex: usize, ey: usize) {
         //qemu_print(format!("Start Render... Now is {:?}\n", TIME.lock()).as_str());
         if sx < HEIGHT && sy < WIDTH && ex <= HEIGHT && ey <= WIDTH {
-            if GL.read().len() == 0 { return; }
+            if GL.read().len() == 0 {
+                return;
+            }
             let p_lock = GL.read();
             let lock = p_lock[p_lock.len() - 1].lock();
             let mut graph: Box<Vec<Vec<(Rgb888, bool)>>> = if lock.enable {
@@ -347,7 +372,9 @@ impl PhysicalWriter {
             drop(lock);
             for layer in (1..p_lock.len() - 1).rev() {
                 let lock = p_lock[layer].lock();
-                if !lock.enable { continue }
+                if !lock.enable {
+                    continue;
+                }
                 let tomix = &lock.data;
                 for x in sx..ex {
                     for y in sy..ey {
@@ -379,15 +406,13 @@ pub fn resolve_32rgba(bmp_data: &[u8]) -> Vec<(usize, usize, Rgb888)> {
     match RawBmp::from_slice(bmp_data) {
         Ok(bmp) => {
             let cm = match bmp.header().channel_masks {
-                None => {
-                    ChannelMasks {
-                        blue: 0x000000FF,
-                        green: 0x0000FF00,
-                        red: 0x00FF0000,
-                        alpha: 0xFF000000,
-                    }
+                None => ChannelMasks {
+                    blue: 0x000000FF,
+                    green: 0x0000FF00,
+                    red: 0x00FF0000,
+                    alpha: 0xFF000000,
                 },
-                Some(cm) => cm
+                Some(cm) => cm,
             };
             let (mut rr, mut br, mut gr, mut ar) = (0, 0, 0, 0);
             let mut rm = cm.red;
@@ -413,7 +438,11 @@ pub fn resolve_32rgba(bmp_data: &[u8]) -> Vec<(usize, usize, Rgb888)> {
             let asize = (cm.alpha >> ar) as f32;
 
             for RawPixel { position, color } in bmp.pixels() {
-                let rgb_color = Rgb888::new(((color & cm.red) >> rr) as u8, ((color & cm.green) >> gr) as u8, ((color & cm.blue) >> br) as u8);
+                let rgb_color = Rgb888::new(
+                    ((color & cm.red) >> rr) as u8,
+                    ((color & cm.green) >> gr) as u8,
+                    ((color & cm.blue) >> br) as u8,
+                );
                 let alpha = ((color & cm.alpha) >> ar) as f32 / asize;
                 //qemu_print(format!("{:?},{:?}", rgb_color, alpha).as_str());
                 if alpha > 0.5 {
@@ -447,5 +476,3 @@ pub fn _print(args: fmt::Arguments) {
         TEXT_WRITER.lock().write_fmt(args).unwrap();
     })
 }
-
-

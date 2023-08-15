@@ -4,8 +4,8 @@ use x86::io::outw;
 use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Size4KiB};
 
 use crate::syskrnl::io::pci::{pci_config_read_u32, pci_find_device_by_device_id};
-use crate::syskrnl::memory::graphic_support::create_graphic_memory_mapping;
 use crate::syskrnl::io::qemu::qemu_print;
+use crate::syskrnl::memory::graphic_support::create_graphic_memory_mapping;
 
 const VBE_DISPI_IOPORT_INDEX: u16 = 0x01CE;
 const VBE_DISPI_IOPORT_DATA: u16 = 0x01CF;
@@ -40,10 +40,7 @@ unsafe fn bga_write_register(index: u16, value: u16) {
     outw(VBE_DISPI_IOPORT_DATA, value);
 }
 
-pub unsafe fn bga_enter_wide(
-    mapper: &mut OffsetPageTable,
-    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
-) {
+pub unsafe fn bga_enter_wide(mapper: &mut OffsetPageTable, frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
     // 禁用VBE
     bga_write_register(VbeDispiIndex::Enable as u16, 0);
 

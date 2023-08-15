@@ -3,16 +3,14 @@ use alloc::string::String;
 
 use embedded_graphics::pixelcolor::Rgb888;
 use lazy_static::lazy_static;
-use rusttype::{Font, HMetrics, point, Rect, Scale, ScaledGlyph};
+use rusttype::{point, Font, HMetrics, Rect, Scale, ScaledGlyph};
 use spin::RwLock;
 
-use cinea_os_sysapi::fs::{FileError, read_all_from_path};
-use cinea_os_sysapi::gui::{WINDOW_CONTENT_HEIGHT, WINDOW_CONTENT_WIDTH, WindowGraphicMemory};
+use cinea_os_sysapi::fs::{read_all_from_path, FileError};
+use cinea_os_sysapi::gui::{WindowGraphicMemory, WINDOW_CONTENT_HEIGHT, WINDOW_CONTENT_WIDTH};
 
 lazy_static! {
-    static ref FONT_MAP: RwLock<BTreeMap<String, Font<'static>>> = {
-        RwLock::new(BTreeMap::new())
-    };
+    static ref FONT_MAP: RwLock<BTreeMap<String, Font<'static>>> = { RwLock::new(BTreeMap::new()) };
 }
 
 pub fn get_font(name: &str) -> Option<Font<'static>> {
@@ -20,7 +18,9 @@ pub fn get_font(name: &str) -> Option<Font<'static>> {
 }
 
 pub fn load_font(name: &str, path: &str) -> Result<(), FileError> {
-    if FONT_MAP.read().contains_key(name) { return Ok(()); }
+    if FONT_MAP.read().contains_key(name) {
+        return Ok(());
+    }
 
     let buf = read_all_from_path(path)?;
 
@@ -65,10 +65,21 @@ pub fn display_font(window: &mut WindowGraphicMemory, glyph: ScaledGlyph, x_pos:
     });
 }
 
-pub fn display_font_string(window: &mut WindowGraphicMemory, s: &str, font_name: &str, x_pos: usize, y_pos: usize, size: f32, line_height: usize, color: Rgb888) {
+pub fn display_font_string(
+    window: &mut WindowGraphicMemory,
+    s: &str,
+    font_name: &str,
+    x_pos: usize,
+    y_pos: usize,
+    size: f32,
+    line_height: usize,
+    color: Rgb888,
+) {
     let mut y_pos = y_pos;
     for ch in s.chars() {
-        if y_pos >= WINDOW_CONTENT_WIDTH { return; }
+        if y_pos >= WINDOW_CONTENT_WIDTH {
+            return;
+        }
         if let Some((glyph, hm)) = get_glyph(font_name, ch, size) {
             display_font(window, glyph, x_pos, y_pos, size, line_height, color);
             y_pos += hm.advance_width as usize + 1usize;

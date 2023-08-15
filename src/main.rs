@@ -11,15 +11,15 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::panic::PanicInfo;
 
-use bootloader::{BootInfo, entry_point};
+use bootloader::{entry_point, BootInfo};
 use x86::int;
 
-use cinea_os::{debugln, hlt_loop, println, rgb888, syskrnl};
+use cinea_os::syskrnl::gui::font::load_font;
 use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::key_presses_handler;
 use cinea_os::syskrnl::task::mouse::mouse_handler;
 use cinea_os::syskrnl::task::Task;
-use cinea_os::syskrnl::gui::font::load_font;
+use cinea_os::{debugln, hlt_loop, println, rgb888, syskrnl};
 use cinea_os_sysapi::gui;
 
 #[cfg(not(test))]
@@ -51,11 +51,14 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         unsafe { int!(0x81) };
         debugln!("I come back with flag=={}", flag);
         #[allow(unused)]
-        if flag > 0 { break; } else { flag = 1; } // 确保不会无尽循环启动shell
+        if flag > 0 {
+            break;
+        } else {
+            flag = 1;
+        } // 确保不会无尽循环启动shell
         syskrnl::proc::Process::spawn(subp, args.as_ptr() as usize, 0, 0).unwrap();
         panic!("The process is Cracked.");
     }
-
 
     // let mut window_instance = window::init_window_gui("测试 GUI 窗口渲染", rgb888!(0xffffffu32)).expect("获取窗口实例失败");
     // load_font("Vonwaon", "/sys/ast/VonwaonBitmap-16px.ttf").expect("Load Font Failed");
@@ -82,4 +85,3 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
 //         println!("async number: {}", number)
 //     }
 // }
-
