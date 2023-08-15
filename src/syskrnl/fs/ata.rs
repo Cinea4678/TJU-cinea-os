@@ -24,6 +24,7 @@ fn offset(position: usize) -> usize {
 }
 
 impl AtaDeviceReader {
+    #[allow(unused)]
     pub fn new(bus: u8, device: u8) -> Result<Self, ()> {
         if let Some(drive) = ata::Drive::open(bus, device) {
             let max_block = drive.block_count();

@@ -20,8 +20,8 @@ pub fn register_timer(million_seconds: usize) {
 pub static NEED_CHECK_EVENT_DATA: AtomicBool = AtomicBool::new(false);
 
 lazy_static! {
-    pub static ref EVENT_DATA: Mutex<BTreeMap<usize, usize>> = { Mutex::new(BTreeMap::new()) };
-    pub static ref EVENT_QUEUE: Mutex<EventQueue> = { Mutex::new(EventQueue::new()) };
+    pub static ref EVENT_DATA: Mutex<BTreeMap<usize, usize>> = Mutex::new(BTreeMap::new());
+    pub static ref EVENT_QUEUE: Mutex<EventQueue> = Mutex::new(EventQueue::new());
 }
 
 pub type EventType = usize;

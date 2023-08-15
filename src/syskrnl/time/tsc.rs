@@ -1,7 +1,7 @@
 use core::{arch, hint};
 use core::sync::atomic::{AtomicU64, Ordering};
 
-use crate::debugln;
+
 
 pub static CLOCKS_PER_NANOSECOND: AtomicU64 = AtomicU64::new(0);
 

@@ -97,6 +97,8 @@ impl Read for AhciDeviceReader {
         }
 
         let mut buf_pos = 0;
+
+        #[allow(unused_assignments)]
         let mut last_read = 0;
 
         for i in 0..=read_times {
@@ -128,7 +130,7 @@ impl Read for AhciDeviceReader {
                 buf_pos += next_copy;
             } else {
                 let next_copy = (last_read).min(buf.len() - buf_pos);
-                &(buf[buf_pos..]).copy_from_slice(&self.cache.as_slice()[0..next_copy]);
+                let _ = &(buf[buf_pos..]).copy_from_slice(&self.cache.as_slice()[0..next_copy]);
                 buf_pos += next_copy;
             }
         }

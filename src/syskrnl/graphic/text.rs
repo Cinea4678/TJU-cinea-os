@@ -5,7 +5,7 @@ use lazy_static::lazy_static;
 use rusttype::ScaledGlyph;
 use spin::Mutex;
 
-use crate::syskrnl::graphic::{DEFAULT_RGB888, GD, GL, rgb888};
+use crate::syskrnl::graphic::{DEFAULT_RGB888, GL, rgb888};
 use crate::syskrnl::graphic::font::get_font;
 
 /// 提交到内存中的HD字符
@@ -84,11 +84,11 @@ impl TextWriter {
     }
 
     pub fn write_string(&mut self, s: &str) {
-        let sx = self.line_position;
+        let _sx = self.line_position;
         for ch in s.chars() {
             self._write_char(ch);
         }
-        let ex = self.line_position;
+        let _ex = self.line_position;
     }
 
 

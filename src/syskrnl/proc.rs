@@ -93,6 +93,7 @@ pub struct Process {
     stack_frame: InterruptStackFrameValue,
     registers: Registers,
     data: ProcessData,
+    #[allow(unused)]
     parent: usize,
     allocator: Arc<Locked<LinkedListAllocator>>,
 }

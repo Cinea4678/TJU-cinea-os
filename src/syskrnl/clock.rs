@@ -1,4 +1,4 @@
-use alloc::collections::{BTreeSet, VecDeque};
+use alloc::collections::{BTreeSet};
 use core::sync::atomic::{AtomicBool, Ordering};
 use lazy_static::lazy_static;
 use spin::Mutex;

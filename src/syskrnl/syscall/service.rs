@@ -228,6 +228,7 @@ pub fn read_time() -> usize {
     syscall_serialized_ret!(&DateTime::new(date, time))
 }
 
+#[allow(dead_code)]
 pub fn gui_keyboard_register() -> usize {
     let pid = proc::id();
     keyboard::GUI_UNDK_KEY_EVENT_SUBSCRIBER.lock().push(GUI_EID_START + pid);

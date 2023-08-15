@@ -1,5 +1,5 @@
 use alloc::format;
-use crate::syskrnl::graphic::{GD, GL, WIDTH};
+use crate::syskrnl::graphic::{GL, WIDTH};
 use crate::syskrnl::time::raw_time;
 use crate::rgb888;
 use crate::syskrnl::io;

@@ -1,6 +1,6 @@
 use x86::io::{inl, outl};
 
-use crate::debugln;
+
 
 const PCI_CONFIG_ADDRESS: u16 = 0xCF8;
 const PCI_CONFIG_DATA: u16 = 0xCFC;

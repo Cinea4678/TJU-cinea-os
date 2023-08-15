@@ -3,7 +3,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cmp::min;
 use core::fmt;
-use core::pin::Pin;
+
 
 use embedded_graphics::{pixelcolor::Rgb888, prelude::*};
 use lazy_static::lazy_static;
@@ -16,7 +16,7 @@ use x86_64::structures::paging::{FrameAllocator, OffsetPageTable, Page, Size4KiB
 use x86_64::VirtAddr;
 use cinea_os_sysapi::gui::WindowGraphicMemory;
 
-use crate::{debugln, rgb888};
+use crate::{rgb888};
 use crate::syskrnl::graphic::color::alpha_mix;
 use crate::syskrnl::graphic::font::get_font;
 use crate::syskrnl::graphic::text::TEXT_WRITER;

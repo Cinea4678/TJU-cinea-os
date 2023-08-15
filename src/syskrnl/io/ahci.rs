@@ -10,7 +10,7 @@ use volatile::Volatile;
 use x86_64::{PhysAddr, VirtAddr};
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PhysFrame, Size4KiB};
 
-use crate::{debugln, println};
+use crate::{debugln};
 use crate::syskrnl::io;
 use crate::syskrnl::memory::translate_addr;
 
@@ -340,6 +340,7 @@ impl HbaPrdtEntry {
     }
 }
 
+#[allow(dead_code)]
 const SATA_SIG_ATA: u32 = 0x0000_0101;      // SATA drive
 const SATA_SIG_ATAPI: u32 = 0xEB14_0101;    // SATAPI drive
 const SATA_SIG_SEMB: u32 = 0xC33C_0101;     // Enclosure management bridge
