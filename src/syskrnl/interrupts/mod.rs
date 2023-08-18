@@ -254,6 +254,7 @@ pub static NO_SCHEDULE: AtomicBool = AtomicBool::new(false);
 
 wrap!(clock_handler => wrapped_clock_handler);
 
+/// 时钟中断处理程序
 extern "sysv64" fn clock_handler(stack_frame: &mut InterruptStackFrame, regs: &mut Registers) {
     // 先把时钟发过去
     let handlers = IRQ_HANDLERS.lock();

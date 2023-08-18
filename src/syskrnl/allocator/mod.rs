@@ -84,7 +84,7 @@ pub fn init_heap(mapper: &mut impl Mapper<Size4KiB>, frame_allocator: &mut impl 
 }
 
 // TODO: Replace `free` by `dealloc`
-pub fn free_pages(addr: u64, size: usize) {
+pub fn dealloc_pages(addr: u64, size: usize) {
     let mapper = syskrnl::memory::mapper();
     let pages: PageRangeInclusive<Size4KiB> = {
         let start_page = Page::containing_address(VirtAddr::new(addr));

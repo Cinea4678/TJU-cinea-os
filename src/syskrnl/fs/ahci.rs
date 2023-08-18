@@ -19,7 +19,6 @@ pub struct AhciDeviceReader {
     cache: Vec<u8>,
     cache_valid: bool,
     cache_start: u64,
-    cache_size: usize,
     port: usize,
 }
 
@@ -44,7 +43,6 @@ impl AhciDeviceReader {
                     cache,
                     cache_valid: false,
                     cache_start: 0,
-                    cache_size: 0,
                     port: port as *mut _ as usize,
                 })
             } else {

@@ -90,11 +90,9 @@ impl TextWriter {
     }
 
     pub fn write_string(&mut self, s: &str) {
-        let _sx = self.line_position;
         for ch in s.chars() {
             self._write_char(ch);
         }
-        let _ex = self.line_position;
     }
 
     fn new_line(&mut self) {

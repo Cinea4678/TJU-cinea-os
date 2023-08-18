@@ -305,7 +305,7 @@ pub fn file_handles() -> Arc<Mutex<BTreeMap<usize, OpenFileHandle>>> {
 pub fn exit() -> usize {
     let table = PROCESS_TABLE.read();
     let proc = &table[id()];
-    syskrnl::allocator::free_pages(proc.code_addr, MAX_PROC_SIZE);
+    syskrnl::allocator::dealloc_pages(proc.code_addr, MAX_PROC_SIZE);
     PID_POOL.lock().insert(id());
     let next_pid = SCHEDULER.lock().terminate(proc);
     debugln!("EXIT:{} -> {}", id(), next_pid);

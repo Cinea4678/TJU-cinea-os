@@ -20,8 +20,7 @@ pub fn nanowait(nanoseconds: u64) {
 
 /// 初始化并记录TSC每纳秒的递增数
 pub fn init() {
-    let calibration_time = 250_000;
-    // 0.25 seconds
+    let calibration_time = 250_000; // 0.25 seconds
     let a = rdtsc();
     super::sleep(calibration_time as f64 / 1e6);
     let b = rdtsc();

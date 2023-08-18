@@ -8,12 +8,12 @@ edition = "2021"
 
 [dependencies]
 cinea-os-sysapi = { version = "0.1.0", path = "../sysapi" }
-lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
-ryu = "1.0.15"
-spin = "0.9.8"
-ufmt = "0.2.0"
-serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
-embedded-graphics = "0.8.0"
-rusttype = { version = "0.9.3", default-features = false, features = ["has-atomics", "libm", "libm-math"] }
-tinyrand = "0.5.0"
 conquer-once = { version = "0.4.0", default-features = false }
+embedded-graphics = "0.8.0"
+ryu = "1.0.15"
+lazy_static = { version = "1.4.0", features = ["spin_no_std"] }
+rusttype = { version = "0.9.3", default-features = false, features = ["has-atomics", "libm", "libm-math"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+spin = "0.9.8"
+tinyrand = "0.5.0"
+ufmt = "0.2.0"

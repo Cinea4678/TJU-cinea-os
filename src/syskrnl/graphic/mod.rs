@@ -65,7 +65,7 @@ lazy_static! {
 
 pub fn enter_wide_mode(mapper: &mut OffsetPageTable, frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
     unsafe {
-        vbe::bga_enter_wide(mapper, frame_allocator);
+        vbe::bga_enter_graphic_mode(mapper, frame_allocator);
     }
     VIDEO_MODE.lock().set_graphic();
 }

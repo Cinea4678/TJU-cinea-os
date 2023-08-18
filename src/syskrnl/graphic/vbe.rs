@@ -40,7 +40,7 @@ unsafe fn bga_write_register(index: u16, value: u16) {
     outw(VBE_DISPI_IOPORT_DATA, value);
 }
 
-pub unsafe fn bga_enter_wide(mapper: &mut OffsetPageTable, frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
+pub unsafe fn bga_enter_graphic_mode(mapper: &mut OffsetPageTable, frame_allocator: &mut impl FrameAllocator<Size4KiB>) {
     // 禁用VBE
     bga_write_register(VbeDispiIndex::Enable as u16, 0);
 

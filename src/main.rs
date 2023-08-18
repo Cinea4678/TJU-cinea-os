@@ -11,16 +11,14 @@ use alloc::vec;
 use alloc::vec::Vec;
 use core::panic::PanicInfo;
 
-use bootloader::{entry_point, BootInfo};
+use bootloader::{BootInfo, entry_point};
 use x86::int;
 
-use cinea_os::syskrnl::gui::font::load_font;
+use cinea_os::{debugln, hlt_loop, println, syskrnl};
 use cinea_os::syskrnl::task::executor::Executor;
 use cinea_os::syskrnl::task::keyboard::key_presses_handler;
 use cinea_os::syskrnl::task::mouse::mouse_handler;
 use cinea_os::syskrnl::task::Task;
-use cinea_os::{debugln, hlt_loop, println, rgb888, syskrnl};
-use cinea_os_sysapi::gui;
 
 #[cfg(not(test))]
 entry_point!(kernel_main);

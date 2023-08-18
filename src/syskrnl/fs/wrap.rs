@@ -159,7 +159,7 @@ pub struct OpenFileHandle {
 }
 
 /// 系统文件表-条目
-pub struct SysyemFileEntry {
+pub struct SystemFileEntry {
     pub path: String,
     pub share: usize,
     pub mutex: bool,
@@ -168,7 +168,7 @@ pub struct SysyemFileEntry {
 static USER_FILE_HANDLER_ID: AtomicUsize = AtomicUsize::new(4);
 
 lazy_static! {
-    static ref SYSTEM_FILE_TABLE: Mutex<BTreeMap<String, SysyemFileEntry>> = Mutex::new(BTreeMap::new());
+    static ref SYSTEM_FILE_TABLE: Mutex<BTreeMap<String, SystemFileEntry >> = Mutex::new(BTreeMap::new());
 }
 
 fn register_opened_file(path: String, write: bool, device: bool) -> Result<usize, FileError> {
@@ -194,7 +194,7 @@ fn register_opened_file(path: String, write: bool, device: bool) -> Result<usize
     } else {
         lock.insert(
             path.clone(),
-            SysyemFileEntry {
+            SystemFileEntry {
                 path: path.clone(),
                 share: 1,
                 mutex: write,
